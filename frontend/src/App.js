@@ -2,42 +2,42 @@ import React, { useState } from "react";
 import GaugeChart from "react-gauge-chart";
 
 function App() {
-  const [score, setScore] = useState(0.9); // Valore iniziale normalizzato (0-1)
-  const [category, setCategory] = useState(""); // Stato per la categoria
-  const [modelVersion, setModelVersion] = useState(""); // Stato per la versione del modello
-  const [file, setFile] = useState(null); // Stato per il file caricato
-  const [loading, setLoading] = useState(false); // Stato per il caricamento
+  const [score, setScore] = useState(0.9); // initial normalized score (0-1)
+  const [category, setCategory] = useState(""); // state for the category
+  const [modelVersion, setModelVersion] = useState(""); // state for the model version
+  const [file, setFile] = useState(null); // state for the uploaded file
+  const [loading, setLoading] = useState(false); // state for loading
 
-  // Funzione per gestire la predizione (Run)
+  // Function to handle the run button
   const handleRun = async () => {
     setLoading(true);
     try {
       const response = await fetch("http://localhost:8000/models");
       if (!response.ok) {
-        throw new Error(`Errore HTTP! Stato: ${response.status}`);
+        throw new Error(`HTTP Error! Status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log(data); // Aggiungi questa riga per vedere cosa ricevi
+      console.log(data);
 
-      // Imposta i dati ricevuti
-      setScore(data.score / 100); // Normalizza il punteggio a un valore tra 0 e 1
+      // Update the state with the received data
+      setScore(data.score / 100); // Normalize the score (0-1) 
       setCategory(data.category);
       setModelVersion(data.model_version);
 
       alert(JSON.stringify(data));
     } catch (error) {
-      console.error("Errore durante la predizione:", error);
+      console.error("Error during prediction:", error);
       alert(error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Funzione per gestire l'upload del file
+  // Function to handle the file upload
   const handleFileUpload = async () => {
     if (!file) {
-      alert("Per favore, carica un file!");
+      alert("Please upload a file!");
       return;
     }
 
@@ -52,14 +52,14 @@ function App() {
       });
 
       if (!response.ok) {
-        throw new Error(`Errore HTTP! Stato: ${response.status}`);
+        throw new Error(`HTTP Error! Status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log(data); // Logga la risposta per vedere cosa ricevi
-      alert(`Categoria: ${data.category}, Punteggio: ${data.score}`);
+      console.log(data); // Log the response data
+      alert(`Category: ${data.category}, Score: ${data.score}`);
     } catch (error) {
-      console.error("Errore durante l'upload del file:", error);
+      console.error("Error during file upload", error);
       alert(error);
     } finally {
       setLoading(false);
@@ -84,17 +84,40 @@ function App() {
           arcWidth={0.3}
           style={{ width: "300px", height: "150px", margin: "0 auto" }}
           textColor="#000000"
-        //formatTextValue={(value) => `${Math.round(value * 100)}%`}
         />
 
-        <div style={{ marginTop: "20px" }}>
-          <input
-            type="file"
-            accept=".csv"
-            onChange={(e) => setFile(e.target.files[0])}
-            style={{ margin: "10px" }}
-          />
+        <div style={{ marginTop: "20px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <label
+            style={{
+              margin: "10px",
+              padding: "10px 20px",
+              backgroundColor: "#6c757d",
+              color: "white",
+              cursor: "pointer",
+              borderRadius: "5px",
+              border: "none",
+              fontSize: "16px",
+              transition: "background-color 0.3s",
+            }}
+          >
+            Choose File
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => setFile(e.target.files[0])}
+              style={{ display: "none" }} // Nasconde l'input predefinito
+            />
+          </label>
+          <div style={{ marginLeft: "10px" }}>
+            {file ? (
+              <span>{file.name}</span> // Mostra il nome del file selezionato
+            ) : (
+              <span>No file selected</span> // Messaggio quando nessun file è selezionato
+            )}
+          </div>
+        </div>
 
+        <div>
           <button
             onClick={handleRun}
             disabled={loading}
@@ -110,7 +133,7 @@ function App() {
               transition: "background-color 0.3s",
             }}
           >
-            {loading ? "Caricamento..." : "Run"}
+            {loading ? "Loading..." : "Run"}
           </button>
 
           <button
@@ -128,15 +151,15 @@ function App() {
               transition: "background-color 0.3s",
             }}
           >
-            {loading ? "Caricamento..." : "Upload"}
+            {loading ? "Loading..." : "Upload"}
           </button>
         </div>
 
         {/* Display category and model version */}
         {category && (
           <div style={{ marginTop: "20px", fontSize: "18px" }}>
-            <p><strong>Categoria:</strong> {category}</p>
-            <p><strong>Versione del modello:</strong> {modelVersion}</p>
+            <p><strong>Category:</strong> {category}</p>
+            <p><strong>Model Version:</strong> {modelVersion}</p>
           </div>
         )}
       </div>
