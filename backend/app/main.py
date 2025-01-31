@@ -1,5 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 import pandas as pd
 from typing import List
@@ -35,6 +36,15 @@ def categorize_score(score: float) -> str:
 
 app = FastAPI(title="Model Serving API")
 model_loader = ModelLoader()
+
+# Enable CORS for all origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 @app.on_event("startup")
 async def startup_event():
@@ -158,5 +168,3 @@ async def health():
             detail=f"Health check failed: {str(e)}",
             headers={"error_type": "health_check_error"}
         )
-
-# Add global error handlers
