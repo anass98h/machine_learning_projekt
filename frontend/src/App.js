@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import axios from "axios";
 import GaugeChart from "react-gauge-chart";
 
 function App() {
@@ -12,12 +13,9 @@ function App() {
   const handleRun = async () => {
     setLoading(true);
     try {
-      const response = await fetch("http://localhost:8000/models");
-      if (!response.ok) {
-        throw new Error(`HTTP Error! Status: ${response.status}`);
-      }
+      const response = await axios.get("http://localhost:8000/models");
 
-      const data = await response.json();
+      const data = response.data;
       console.log(data);
 
       // Update the state with the received data
@@ -46,16 +44,13 @@ function App() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:8000/predict/model_name", {
-        method: "POST",
-        body: formData,
+      const response = await axios.post("http://localhost:8000/predict/model_name", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP Error! Status: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = response.data;
       console.log(data); // Log the response data
       alert(`Category: ${data.category}, Score: ${data.score}`);
     } catch (error) {
@@ -105,14 +100,14 @@ function App() {
               type="file"
               accept=".csv"
               onChange={(e) => setFile(e.target.files[0])}
-              style={{ display: "none" }} // Nasconde l'input predefinito
+              style={{ display: "none" }} // Hide the default input
             />
           </label>
           <div style={{ marginLeft: "10px" }}>
             {file ? (
-              <span>{file.name}</span> // Mostra il nome del file selezionato
+              <span>{file.name}</span> // Show selected file name
             ) : (
-              <span>No file selected</span> // Messaggio quando nessun file è selezionato
+              <span>No file selected</span> // Message when no file is selected
             )}
           </div>
         </div>
