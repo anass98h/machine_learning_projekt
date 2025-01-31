@@ -3,5 +3,5 @@ joblib==1.4.2
 numpy==2.2.2
 pandas==2.2.3
 pydantic==2.10.6
-unicorn
+uvicorn
 python-multipart
