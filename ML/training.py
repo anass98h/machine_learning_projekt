@@ -5,12 +5,14 @@ from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import joblib
 import numpy as np
 
 
-df = pd.read_excel("data/AimoScore_WeakLink_big_scores.xls")
+df = pd.read_excel("ML/data/AimoScore_WeakLink_big_scores.xls")
 
 
 x = df.iloc[:,1:-1]
@@ -19,7 +21,15 @@ y = df.iloc[:,0]
 
 x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=42)
 
+feature_weights = {
+    7: 2, 8: 2, 9: 2, 10: 2, 11: 2, 12: 2,  # FSM important features
+    16: 2, 17: 2,22:2, 23: 4, 24: 4,25: 2,26: 2,27: 2, 28: 2, 29: 2, 29: 2, 33: 2, 34: 2, 35: 2, 36: 2,  # NASM key features
+}
 
+
+correlatedColumns = [
+    (13, 14), (16, 17), (20, 21), (23, 24)  # NASM symmetry
+]
 
 class CombineCorrelatedFeatures(BaseEstimator, TransformerMixin):
     def __init__(self, correlatedColumns):
@@ -29,9 +39,10 @@ class CombineCorrelatedFeatures(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        X_weighted = X
+        X_combined = pd.DataFrame(X.copy(), columns=X.columns)
+        print(X_combined.head())
         
-        drop_columns = []
+        drop_columns = ["No_15_NASM_Deviation", "No_2_Angle_Deviation", "No_13_NASM_Deviation", "No_19_NASM_Deviation", "No_4_Angle_Deviation", "No_5_Angle_Deviation", "No_9_Angle_Deviation", "No_10_Angle_Deviation" ]
 
         for col1_idx, col2_idx in self.correlatedColumns:
             if col1_idx < X_combined.shape[1] and col2_idx  < X_combined.shape[1]:
@@ -47,34 +58,48 @@ class CombineCorrelatedFeatures(BaseEstimator, TransformerMixin):
                 print(f"Columns {X_combined.iloc[:, col1_idx]} and {X_combined.iloc[:, col2_idx]} not found in the dataset")
 
                 
-                
+        print(f"Columns {drop_columns} will be dropped")
         X_combined.drop(columns=drop_columns, inplace=True)
+        print(X_combined.head())
         return X_combined
 
 
-feature_weights = {
-    8: 2, 9: 2, 10: 2, 11: 2, 12: 2, 13: 2,  # FSM important features
-    17: 2, 18: 2, 24: 4, 25: 4, 26: 2, 27: 2,  # NASM key features
-}
+class FeatureWeights(BaseEstimator, TransformerMixin):
+    def __init__(self, feature_weights):
+        self.feature_weights = feature_weights
 
-for col, weight in feature_weights.items():
-    if col in x_train.columns:
-        x_train[col]*= weight
-        x_test[col]*=  weight
+    def fit(self, X, y=None):
+        return self
 
-correlatedColumns = [
-    (4, 6), (5, 7), (8, 11), (9, 12), (10, 13),  # FSM symmetry
-    (14, 15), (17, 18), (21, 22), (24, 25), (26, 27), (28, 29), (31, 32)  # NASM symmetry
-]
+    def transform(self, X):
+        xWeighted = X.copy()
+        for colIdx, weight in self.feature_weights.items():
+            if colIdx < len(xWeighted.columns):
+                colName = xWeighted.columns[colIdx]
+                xWeighted[colName] *= weight
+                #print(f"Column {colName} weighted by {weight}")
+            else:
+                print(f"Column {colIdx} not found in the dataset")
+
+        return xWeighted
+
+irrelevant_columns = [27, 1, 25, 31, 3, 4, 7, 8, 9]
+
+column_dropper = ColumnTransformer(
+    [
+        ('columns_to_drop', 'drop', irrelevant_columns)
+    ],
+    remainder="passthrough"
+)
 
 pipeline = Pipeline(
-    steps=[
-        ('preprocessing', CombineCorrelatedFeatures(correlatedColumns)),
+    steps=[        
+        ('feature_weights', FeatureWeights(feature_weights)),
+        ('combine_corr', CombineCorrelatedFeatures(correlatedColumns)),
+        #('columndrop', column_dropper),
         ('model', LinearRegression())
     ]
 )
-
-
 
 pipeline.fit(x_train, y_train)
 
@@ -93,5 +118,5 @@ print("R2 Score: ", r2)
 #plt.show()
 
 # Save the model
-joblib.dump(pipeline, "saved models/linear_regression_model_v3.pkl")
+joblib.dump(pipeline, "ML/saved models/linear_regression_model_v4.pkl")
 print("Model saved successfully!")
