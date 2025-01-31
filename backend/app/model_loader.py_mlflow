@@ -1,0 +1,81 @@
+import mlflow
+from mlflow.pyfunc import PyFuncModel
+from typing import Dict, Optional, List, Any
+from pathlib import Path
+import logging
+from dataclasses import dataclass
+
+@dataclass
+class ModelInfo:
+    name: str
+    version: str
+    stage: str  # 'Production', 'Staging', etc.
+    run_id: str
+    artifact_path: str
+
+class MLflowModelLoader:
+    def __init__(self, models_dir: str = "models"):
+        self.models_dir = Path(models_dir)
+        
+        self.models: Dict[str, PyFuncModel] = {}
+        self.model_info: Dict[str, ModelInfo] = {}
+        
+        # Create models directory if it doesn't exist
+        self.models_dir.mkdir(exist_ok=True)
+    
+    def load_models(self) -> None:
+        """Load all models from MLflow."""
+        logging.info("Loading models from MLflow...")
+        
+        # Get all models from the registry
+        client = mlflow.tracking.MlflowClient()
+        registered_models = client.search_registered_models()
+        
+        for reg_model in registered_models:
+            model_name = reg_model.name
+            
+            # Get latest version for each stage
+            for stage in ['Production', 'Staging']:
+                try:
+                    latest_version = client.get_latest_versions(
+                        model_name, 
+                        stages=[stage]
+                    )
+                    
+                    if latest_version:
+                        version = latest_version[0]
+                        
+                        # Create a unique key for the model
+                        model_key = f"{model_name}_{stage}"
+                        
+                        # Load the model
+                        model_uri = f"models:/{model_name}/{stage}"
+                        self.models[model_key] = mlflow.pyfunc.load_model(model_uri)
+                        
+                        # Store model info
+                        self.model_info[model_key] = ModelInfo(
+                            name=model_name,
+                            version=version.version,
+                            stage=stage,
+                            run_id=version.run_id,
+                            artifact_path=version.source
+                        )
+                        
+                        logging.info(f"Loaded model: {model_key}")
+                
+                except Exception as e:
+                    logging.error(f"Error loading {model_name} {stage}: {str(e)}")
+    
+    def get_model(self, name: str, stage: str = 'Production') -> Optional[PyFuncModel]:
+        """Get a specific model by name and stage."""
+        model_key = f"{name}_{stage}"
+        return self.models.get(model_key)
+    
+    def get_model_info(self, name: str, stage: str = 'Production') -> Optional[ModelInfo]:
+        """Get information about a specific model."""
+        model_key = f"{name}_{stage}"
+        return self.model_info.get(model_key)
+    
+    def list_models(self) -> List[ModelInfo]:
+        """List all available models."""
+        return list(self.model_info.values())

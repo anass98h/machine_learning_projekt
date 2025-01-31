@@ -1,0 +1,209 @@
+# app/main.py
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi.responses import JSONResponse
+import mlflow
+from mlflow.pyfunc import PyFuncModel
+import pandas as pd
+import requests
+from typing import Dict, Any, List
+import logging
+from app.model_loader import MLflowModelLoader, ModelInfo
+import os
+from pydantic import BaseModel
+
+# Response models
+class PredictionResponse(BaseModel):
+    prediction: List[float]
+    model_name: str
+    model_version: str
+    model_stage: str
+
+class HealthResponse(BaseModel):
+    status: str
+    models_loaded: int
+    available_models: List[str]
+    mlflow_connected: bool
+
+class RefreshResponse(BaseModel):
+    message: str
+    status: str
+
+class ErrorResponse(BaseModel):
+    detail: str
+    error_type: str
+
+app = FastAPI(title="MLflow Model Serving")
+model_loader = MLflowModelLoader()
+
+def check_mlflow_connection() -> bool:
+    """Check if MLflow tracking server is reachable."""
+    try:
+
+        tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "").strip()
+        
+
+        mlflow.set_tracking_uri(tracking_uri)
+
+        # check if it is a url
+        if tracking_uri.startswith("http"):
+            response = requests.get(f"{tracking_uri}/api/2.0/mlflow/experiments/list", timeout=3)
+            return response.status_code == 200
+
+        # check if it is a file path
+        if tracking_uri.startswith("file:"):
+            return os.path.exists(tracking_uri[5:])  # Remove "file:" prefix
+        
+        # Default to false if tracking URI is invalid
+        return False
+
+    except requests.exceptions.RequestException as e:
+        logging.error(f"MLflow server connection failed: {e}")
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error while checking MLflow connection: {e}")
+        return False
+
+@app.on_event("startup")
+async def startup_event():
+    """Load all models during startup."""
+    try:
+        model_loader.load_models()
+    except Exception as e:
+        logging.error(f"Failed to load models during startup: {str(e)}")
+        # Don't raise exception here as we want the app to start anyway
+        # Models can be loaded later via refresh endpoint
+
+@app.post("/predict/{model_name}", 
+         response_model=PredictionResponse,
+         responses={
+             404: {"model": ErrorResponse},
+             500: {"model": ErrorResponse}
+         })
+async def predict(
+    model_name: str,
+    file: UploadFile = File(...),
+    stage: str = 'Production'
+):
+    model = model_loader.get_model(model_name, stage)
+    if not model:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Model '{model_name}' in stage '{stage}' not found"
+        )
+    
+    try:
+        contents = await file.read()
+        df = pd.read_csv(pd.io.common.BytesIO(contents))
+        prediction = model.predict(df)
+        model_info = model_loader.get_model_info(model_name, stage)
+        
+        return PredictionResponse(
+            prediction=prediction.tolist(),
+            model_name=model_name,
+            model_version=model_info.version if model_info else "unknown",
+            model_stage=stage
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+@app.get("/models", 
+         response_model=List[ModelInfo],
+         responses={
+             500: {"model": ErrorResponse}
+         })
+async def list_models():
+    """List all available models."""
+    try:
+        models = model_loader.list_models()
+        if not models:
+            # Return empty list but not an error if no models are loaded
+            return []
+        return models
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list models: {str(e)}",
+            headers={"error_type": "model_list_error"}
+        )
+
+@app.post("/refresh-models", 
+          response_model=RefreshResponse,
+          responses={
+              500: {"model": ErrorResponse}
+          })
+async def refresh_models(background_tasks: BackgroundTasks):
+    """Refresh models from MLflow registry."""
+    if not check_mlflow_connection():
+        raise HTTPException(
+            status_code=500,
+            detail="Cannot connect to MLflow server",
+            headers={"error_type": "mlflow_connection_error"}
+        )
+    
+    try:
+        background_tasks.add_task(model_loader.load_models)
+        return RefreshResponse(
+            message="Model refresh started",
+            status="success"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start model refresh: {str(e)}",
+            headers={"error_type": "refresh_error"}
+        )
+
+@app.get("/health", 
+         response_model=HealthResponse,
+         responses={
+             500: {"model": ErrorResponse}
+         })
+async def health():
+    """Health check endpoint."""
+    try:
+        mlflow_connected = check_mlflow_connection()
+        models = model_loader.list_models()
+        
+        # Service is only healthy if MLflow is connected
+        status = "healthy" if mlflow_connected else "unhealthy"
+        
+        return HealthResponse(
+            status=status,
+            models_loaded=len(model_loader.models),
+            available_models=[
+                f"{info.name} ({info.stage})" 
+                for info in models
+            ],
+            mlflow_connected=mlflow_connected
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Health check failed: {str(e)}",
+            headers={"error_type": "health_check_error"}
+        )
+
+# Add error handlers for specific exceptions
+@app.exception_handler(Exception)
+async def general_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=500,
+        content=ErrorResponse(
+            detail=str(exc),
+            error_type="internal_server_error"
+        ).dict()
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=ErrorResponse(
+            detail=str(exc.detail),
+            error_type=exc.headers.get("error_type", "http_error")
+        ).dict()
+    )
