@@ -82,7 +82,7 @@ async def predict(
         # Make prediction
         prediction = model.predict(df)
         score = float(np.clip(prediction[0] , 0, 100))
-        category = categorize_score(score)
+        category = categorize_score(score * 100)
         
         return PredictionResponse(
             model_name=model_name,
