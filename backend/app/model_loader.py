@@ -36,6 +36,7 @@ class ModelLoader:
                 try:
                     model_name = model_path.stem  # filename without extension
                     model_data = joblib.load(model_path)
+                    print(model_data)
                     if isinstance(model_data, tuple) and len(model_data) == 2:
                         model, version = model_data
                     else:
