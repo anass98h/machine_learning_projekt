@@ -27,7 +27,8 @@ feature_weights = {
 }
 
 
-correlatedColumns = [
+symmetricalColumns = [
+    (3, 5), (4, 6), (7, 10), (8, 11), (9, 12),  # FMS Symmetry
     (13, 14), (16, 17), (20, 21), (23, 24)  # NASM symmetry
 ]
 
@@ -40,27 +41,14 @@ class CombineCorrelatedFeatures(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         X_combined = pd.DataFrame(X.copy(), columns=X.columns)
-        print(X_combined.head())
-        
-        drop_columns = ["No_15_NASM_Deviation", "No_2_Angle_Deviation", "No_13_NASM_Deviation", "No_19_NASM_Deviation", "No_4_Angle_Deviation", "No_5_Angle_Deviation", "No_9_Angle_Deviation", "No_10_Angle_Deviation" ]
 
         for col1_idx, col2_idx in self.correlatedColumns:
-            if col1_idx < X_combined.shape[1] and col2_idx  < X_combined.shape[1]:
-                col1_name = X_combined.columns[col1_idx]
-                col2_name = X_combined.columns[col2_idx]
+            col1_name = X_combined.columns[col1_idx]
+            col2_name = X_combined.columns[col2_idx]
+            
+            new_col_name = f"combined_{col1_name}_{col2_name}"
+            X_combined[new_col_name] = X_combined[col1_name]*X_combined[col2_name]
                 
-                new_col_name = f"combined_{col1_name}_{col2_name}"
-                X_combined[new_col_name] = (X_combined[col1_name]+X_combined[col2_name]) /2
-
-                drop_columns.extend([col1_name, col2_name])
-                
-            else:
-                print(f"Columns {X_combined.iloc[:, col1_idx]} and {X_combined.iloc[:, col2_idx]} not found in the dataset")
-
-                
-        print(f"Columns {drop_columns} will be dropped")
-        X_combined.drop(columns=drop_columns, inplace=True)
-        print(X_combined.head())
         return X_combined
 
 
@@ -94,9 +82,10 @@ column_dropper = ColumnTransformer(
 
 pipeline = Pipeline(
     steps=[        
-        ('feature_weights', FeatureWeights(feature_weights)),
-        ('combine_corr', CombineCorrelatedFeatures(correlatedColumns)),
-        #('columndrop', column_dropper),
+        #('feature_weights', FeatureWeights(feature_weights)),
+        ('combine_sym', CombineCorrelatedFeatures(symmetricalColumns)),
+        ('columndrop', column_dropper),
+        ('normalize', StandardScaler()),
         ('model', LinearRegression())
     ]
 )
@@ -118,5 +107,5 @@ print("R2 Score: ", r2)
 #plt.show()
 
 # Save the model
-joblib.dump(pipeline, "ML/saved models/linear_regression_model_v4.pkl")
+joblib.dump(pipeline, "ML/saved models/linear_regression_model_v5.pkl")
 print("Model saved successfully!")
