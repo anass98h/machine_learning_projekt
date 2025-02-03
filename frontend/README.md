@@ -1,70 +1,84 @@
-# Getting Started with Create React App
+## Overview
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This is the frontend for the Automated Movement Assessment web application. It provides an interface for users to interact with the model-serving backend, allowing them to upload CSV files and receive predictions. The frontend is built using **React** and includes a **dashboard** to monitor system health, manage models, and visualize prediction results.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **Health Status Monitoring**: Displays the system health and number of loaded models.
+- **Model Selection**: Allows users to select a model from the list of available models.
+- **File Upload & Prediction**: Users can upload a CSV file and request a prediction.
+- **Prediction Visualization**: Displays results with a **gauge chart** and categorized score.
+- **Model Management**: Provides functionality to refresh the list of available models.
 
-### `npm start`
+## Prerequisites
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Before running the frontend, ensure you have:
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- **Node.js**
+- **npm** or **yarn** installed
+- The backend API running at `http://localhost:8000`
 
-### `npm test`
+## Running the Application
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+To start the development server, run:
 
-### `npm run build`
+```bash
+npm start
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+The application will be available at `http://localhost:3000`.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## API Integration
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+The frontend communicates with the backend API via the following endpoints:
 
-### `npm run eject`
+### 1. Fetch Available Models
+- **Endpoint:** `GET /models`
+- **Purpose:** Retrieves a list of models available for prediction.
+- **Frontend Implementation:** Models are displayed in a dropdown for user selection.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### 2. Health Check
+- **Endpoint:** `GET /health`
+- **Purpose:** Retrieves the system health status and number of loaded models.
+- **Frontend Implementation:** Displays health status and model count.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### 3. Refresh Models
+- **Endpoint:** `POST /refresh-models`
+- **Purpose:** Triggers a reload of all models.
+- **Frontend Implementation:** Calls this endpoint when users request to refresh the model list.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### 4. Make Prediction
+- **Endpoint:** `POST /predict/{model_name}`
+- **Purpose:** Submits a CSV file for prediction and receives a score and category.
+- **Frontend Implementation:** The score is visualized using a **gauge chart**.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## User Interface
 
-## Learn More
+The UI consists of the following sections:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1. **Navigation Bar**: Displays project information.
+2. **System Health**: Shows the backend health status and loaded models.
+3. **Model Management**: Lists available models and includes a refresh button.
+4. **File Upload & Prediction**: Allows users to upload a CSV file and make predictions.
+5. **Results Dashboard**: Displays the prediction results, including:
+   - The **selected model name**
+   - The **raw score**
+   - The **prediction category**
+   - A **gauge chart** visualization
+   - A **legend** explaining the score categories
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Score Categories
 
-### Code Splitting
+Predictions are classified into categories:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- **Bad (0-39)**: Poor performance or high risk.
+- **Good (40-69)**: Acceptable performance or moderate risk.
+- **Great (70-89)**: Strong performance or low risk.
+- **Excellent (90-100)**: Exceptional performance or minimal risk.
 
-### Analyzing the Bundle Size
+## Error Handling
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Errors are displayed in a user-friendly way, with messages for:
+- Failed API requests
+- Invalid file formats
+- Missing input fields
