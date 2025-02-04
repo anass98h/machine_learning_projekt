@@ -10,7 +10,12 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import joblib
 import numpy as np
+import mlflow
+import mlflow.sklearn
 
+#initiate mlflow
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("linear_regression")
 
 df = pd.read_excel("ML/data/AimoScore_WeakLink_big_scores.xls")
 
@@ -47,7 +52,7 @@ class CombineCorrelatedFeatures(BaseEstimator, TransformerMixin):
             col2_name = X_combined.columns[col2_idx]
             
             new_col_name = f"combined_{col1_name}_{col2_name}"
-            X_combined[new_col_name] = X_combined[col1_name]*X_combined[col2_name]
+            X_combined[new_col_name] = X_combined[col1_name] * X_combined[col2_name]
                 
         return X_combined
 
@@ -90,22 +95,48 @@ pipeline = Pipeline(
     ]
 )
 
-pipeline.fit(x_train, y_train)
+with mlflow.start_run():
+    pipeline.fit(x_train, y_train)
 
-y_pred = pipeline.predict(x_test)
+    y_pred = pipeline.predict(x_test)
 
-mse = mean_squared_error(y_test, y_pred)
-r2 = r2_score(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
 
-print("Mean Squared Error: ", mse)
-print("R2 Score: ", r2)
+    mlflow.log_param("test_size", 0.2)
+    mlflow.log_param("random_state", 42)
+    mlflow.log_metric("mse", mse)
+    mlflow.log_metric("r2", r2)
+    
+    mlflow.sklearn.log_model(pipeline, "linear_regression_model_v5")
+    
+    
+    model_name = "linear_regression_model_v5"
+    
+    model_info = mlflow.sklearn.log_model(
+        sk_model=pipeline,
+        artifact_path=model_name,
+                                        )
+    
+    mlflow.register_model(
+        model_uri=model_info.model_uri,
+        name=model_name
+    )
 
-#plt.scatter(y_test, y_pred,alpha=0.5)
-#plt.xlabel("real value y_test")
-#plt.ylabel("predicted value y_pred")
-#plt.title("Linear Regression Model")
-#plt.show()
+    print("Mean Squared Error: ", mse)
+    print("R2 Score: ", r2)
+    
+    # Save the model
+    joblib.dump(pipeline, "ML/saved models/linear_regression_model_v5.pkl")
+    print("Model saved successfully!")
 
-# Save the model
-joblib.dump(pipeline, "ML/saved models/linear_regression_model_v5.pkl")
-print("Model saved successfully!")
+
+
+
+
+
+
+
+
+
+
