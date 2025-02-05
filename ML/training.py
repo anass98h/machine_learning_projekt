@@ -12,7 +12,7 @@ import joblib
 import numpy as np
 import mlflow
 import mlflow.sklearn
-
+import custom_transformers
 #initiate mlflow
 mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("linear_regression")
@@ -37,44 +37,9 @@ symmetricalColumns = [
     (13, 14), (16, 17), (20, 21), (23, 24)  # NASM symmetry
 ]
 
-class CombineCorrelatedFeatures(BaseEstimator, TransformerMixin):
-    def __init__(self, correlatedColumns):
-        self.correlatedColumns = correlatedColumns
-
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X):
-        X_combined = pd.DataFrame(X.copy(), columns=X.columns)
-
-        for col1_idx, col2_idx in self.correlatedColumns:
-            col1_name = X_combined.columns[col1_idx]
-            col2_name = X_combined.columns[col2_idx]
-            
-            new_col_name = f"combined_{col1_name}_{col2_name}"
-            X_combined[new_col_name] = X_combined[col1_name] * X_combined[col2_name]
-                
-        return X_combined
 
 
-class FeatureWeights(BaseEstimator, TransformerMixin):
-    def __init__(self, feature_weights):
-        self.feature_weights = feature_weights
 
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X):
-        xWeighted = X.copy()
-        for colIdx, weight in self.feature_weights.items():
-            if colIdx < len(xWeighted.columns):
-                colName = xWeighted.columns[colIdx]
-                xWeighted[colName] *= weight
-                #print(f"Column {colName} weighted by {weight}")
-            else:
-                print(f"Column {colIdx} not found in the dataset")
-
-        return xWeighted
 
 irrelevant_columns = [27, 1, 25, 31, 3, 4, 7, 8, 9]
 
@@ -85,10 +50,12 @@ column_dropper = ColumnTransformer(
     remainder="passthrough"
 )
 
+feature_combiner = custom_transformers.CombineCorrelatedFeatures(symmetricalColumns)
+
 pipeline = Pipeline(
     steps=[        
         #('feature_weights', FeatureWeights(feature_weights)),
-        ('combine_sym', CombineCorrelatedFeatures(symmetricalColumns)),
+        ('combine_sym', feature_combiner),
         ('columndrop', column_dropper),
         ('normalize', StandardScaler()),
         ('model', LinearRegression())
