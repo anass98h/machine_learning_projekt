@@ -40,3 +40,23 @@ class FeatureWeights(BaseEstimator, TransformerMixin):
                 print(f"Column {colIdx} not found in the dataset")
 
         return xWeighted
+
+
+class symmetricalColumns(BaseEstimator, TransformerMixin):
+    def __init__(self, symmetricalColumns):
+        self.symmetricalColumns = symmetricalColumns
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X_sym = pd.DataFrame(X.copy(), columns=X.columns)
+
+        for col1_idx, col2_idx in self.symmetricalColumns:
+            col1_name = X_sym.columns[col1_idx]
+            col2_name = X_sym.columns[col2_idx]
+            
+            new_col_name = f"sym_{col1_name}_{col2_name}"
+            X_sym[new_col_name] = X_sym[col1_name] + X_sym[col2_name]
+                
+        return X_sym

@@ -51,10 +51,12 @@ column_dropper = ColumnTransformer(
 )
 
 feature_combiner = custom_transformers.CombineCorrelatedFeatures(symmetricalColumns)
+symmetrical_Columns = custom_transformers.symmetricalColumns(symmetricalColumns)
 
 pipeline = Pipeline(
     steps=[        
         #('feature_weights', FeatureWeights(feature_weights)),
+        #('symmetrical_columns', symmetrical_Columns),
         ('combine_sym', feature_combiner),
         ('columndrop', column_dropper),
         ('normalize', StandardScaler()),
