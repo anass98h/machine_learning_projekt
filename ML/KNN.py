@@ -10,30 +10,24 @@ import matplotlib.pyplot as plt
 import joblib
 import mlflow
 import mlflow.sklearn
+import custom_transformers
+from sklearn.preprocessing import FunctionTransformer
 
 
-# ======================
-# Read 'n_neighbors' from CLI argument
-# ======================
-if len(sys.argv) > 1:
-    # If an integer was passed on command line, use it for n_neighbors
-    n_neighbors_arg = int(sys.argv[1])
-else:
-    # Fall back to default of 6 if none is provided
-    n_neighbors_arg = 6  
+
 
 
 # ======================
 # MLflow Configuration
 # ======================
 mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("knn_classification")
+mlflow.set_experiment("knn_classification_refined")
 
 # ======================
 # Adjustable parameters
 # ======================
 KNN_PARAMS = {
-    'n_neighbors': n_neighbors_arg,       # Number of neighbors
+    'n_neighbors': 4,       # Number of neighbors
     'weights': 'uniform',   # 'uniform' or 'distance'
     'p': 2                  # Metric: 1=Manhattan, 2=Euclidean
 }
@@ -41,6 +35,9 @@ TEST_SIZE = 0.2
 RANDOM_STATE = 42
 
 with mlflow.start_run():
+    
+    mlflow.set_tag("mlflow.runName", "without scaling")
+    
     # ======================
     # Data Preparation
     # ======================
@@ -83,16 +80,8 @@ with mlflow.start_run():
         stratify=y
     )
 
-    # ======================
-    # Pipeline Construction
-    # ======================
-    # We'll standardize all features, then apply KNN
-    preprocessor = ColumnTransformer(
-        transformers=[('scaler', StandardScaler(), X.columns)]
-    )
 
     pipeline = Pipeline([
-        ('preprocessor', preprocessor),
         ('clf', KNeighborsClassifier(**KNN_PARAMS))
     ])
 

@@ -1,6 +1,7 @@
 from sklearn.base import BaseEstimator, TransformerMixin
 import pandas as pd
 
+
 class CombineCorrelatedFeatures(BaseEstimator, TransformerMixin):
     def __init__(self, correlatedColumns):
         self.correlatedColumns = correlatedColumns
@@ -19,7 +20,6 @@ class CombineCorrelatedFeatures(BaseEstimator, TransformerMixin):
             X_combined[new_col_name] = X_combined[col1_name] * X_combined[col2_name]
                 
         return X_combined
-
 
 
 class FeatureWeights(BaseEstimator, TransformerMixin):
