@@ -17,7 +17,7 @@ mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("logistic_regression_experiment")
 
 # ======================
-# Adjustable parameters
+# Adjustable parameters test test
 # ======================
 LR_PARAMS = {
     'C': 0.5,                # Inverse of regularization strength
