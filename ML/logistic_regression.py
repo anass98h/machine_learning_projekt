@@ -8,6 +8,7 @@ from sklearn.preprocessing import StandardScaler
 import joblib
 import mlflow
 import mlflow.sklearn
+from sklearn.metrics import log_loss
 
 # ======================
 # MLflow Configuration
@@ -16,12 +17,12 @@ mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("logistic_regression_experiment")
 
 # ======================
-# Adjustable parameters
+# Adjustable parameters test test
 # ======================
 LR_PARAMS = {
-    'C': 0.75,                # Inverse of regularization strength
-    'penalty': 'l2',         # or 'l1', 'elasticnet' (with solver='saga'), etc.
-    'solver': 'lbfgs',       # or 'liblinear', 'saga' for L1 regularization
+    'C': 0.5,                # Inverse of regularization strength
+    'penalty': 'l1',         # or 'l1', 'elasticnet' (with solver='saga'), etc.
+    'solver': 'liblinear',       # or 'liblinear', 'saga' for L1 regularization
     'max_iter': 1000         # increase if you get convergence warnings
 }
 TEST_SIZE = 0.2
@@ -29,7 +30,7 @@ RANDOM_STATE = 42
 
 with mlflow.start_run():
     
-    mlflow.set_tag("mlflow.runName", "logistic_regression_C=0.750")
+    mlflow.set_tag("mlflow.runName", "logistic_regression_C=0.5_liblinear_l1")
     
     # ======================
     # Data Preparation
@@ -103,6 +104,7 @@ with mlflow.start_run():
     error_rate = 1 - accuracy
 
     report_dict = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
+
 
     mlflow.log_metrics({
         "accuracy": accuracy,
