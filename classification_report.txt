@@ -1,0 +1,18 @@
+                              precision    recall  f1-score   support
+
+        ExcessiveForwardLean       0.63      0.60      0.62        20
+                 ForwardHead       0.33      0.39      0.36        23
+          LeftArmFallForward       0.56      0.68      0.61       126
+ LeftAsymmetricalWeightShift       0.50      0.33      0.40        15
+         LeftKneeMovesInward       0.00      0.00      0.00         1
+        LeftKneeMovesOutward       0.38      0.30      0.33        10
+       LeftShoulderElevation       0.00      0.00      0.00        12
+         RightArmFallForward       0.54      0.53      0.54        94
+RightAsymmetricalWeightShift       0.00      0.00      0.00         4
+        RightKneeMovesInward       0.43      0.33      0.38         9
+       RightKneeMovesOutward       0.91      0.91      0.91        55
+      RightShoulderElevation       0.46      0.42      0.44        50
+
+                    accuracy                           0.57       419
+                   macro avg       0.39      0.38      0.38       419
+                weighted avg       0.55      0.57      0.56       419
