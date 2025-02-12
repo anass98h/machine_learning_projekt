@@ -25,12 +25,6 @@ class WeakLink(str, Enum):
     LEFT_HEEL_RISES = "LeftHeelRises"
     RIGHT_HEEL_RISES = "RightHeelRises"
 
-class ModelInfo(BaseModel):
-    name: str
-    version: str
-    path: str
-    model_type: str = "predictor"
-
 class WeakestLinkResponse(BaseModel):
     model_name: str
     weakest_link: WeakLink
@@ -38,28 +32,6 @@ class WeakestLinkResponse(BaseModel):
 class ErrorResponse(BaseModel):
     detail: str
     error_type: str
-
-# Mock data
-MOCK_MODELS = [
-    ModelInfo(
-        name="movement_classifier_v1",
-        version="1.0.0",
-        path="models/movement_classifier_v1.pkl",
-        model_type="categorizer"
-    ),
-    ModelInfo(
-        name="movement_classifier_v2",
-        version="2.0.0",
-        path="models/movement_classifier_v2.pkl",
-        model_type="categorizer"
-    ),
-    ModelInfo(
-        name="experimental_classifier",
-        version="0.1.0",
-        path="models/experimental_classifier.pkl",
-        model_type="categorizer"
-    )
-]
 
 # Response models
 class PredictionResponse(BaseModel):
@@ -155,17 +127,18 @@ async def predict(
          responses={
              500: {"model": ErrorResponse}
          })
-async def list_models():
-    """List all available models."""
+async def list_regression_models():
+    """List all regression models."""
     try:
-        models = model_loader.list_models()
-        return models
+        # Only return regression models
+        return model_loader.list_models(model_type="regression")
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to list models: {str(e)}",
+            detail=f"Failed to list regression models: {str(e)}",
             headers={"error_type": "model_list_error"}
         )
+
 
 @app.post("/refresh-models", 
          response_model=dict,
@@ -184,7 +157,7 @@ async def refresh_models(background_tasks: BackgroundTasks):
             headers={"error_type": "refresh_error"}
         )
 
-@app.get("/health", 
+@app.get("/health",
          response_model=HealthResponse,
          responses={
              500: {"model": ErrorResponse}
@@ -192,8 +165,8 @@ async def refresh_models(background_tasks: BackgroundTasks):
 async def health():
     """Health check endpoint."""
     try:
-        # Check if models directory exists
-        if not model_loader.models_dir.exists():
+        # Check if both directories exist
+        if not model_loader.regression_dir.exists() or not model_loader.classifier_dir.exists():
             return HealthResponse(
                 status="unhealthy",
                 models_loaded=0,
@@ -201,7 +174,7 @@ async def health():
             )
         
         # Check if we have any models loaded
-        models = model_loader.list_models()
+        models = model_loader.list_models()  # This gets all models, both regression and classifier
         if not models:
             return HealthResponse(
                 status="degraded",
@@ -229,7 +202,15 @@ async def health():
          })
 async def list_categorizing_models():
     """List all models used for weakest link categorization."""
-    return MOCK_MODELS
+    try:
+        # Only return classifier models
+        return model_loader.list_models(model_type="classifier")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list categorizing models: {str(e)}",
+            headers={"error_type": "model_list_error"}
+        )
 
 @app.post("/classify-weakest-link/{model_name}", 
          response_model=WeakestLinkResponse,
@@ -242,27 +223,29 @@ async def classify_weakest_link(
     model_name: str,
     file: UploadFile = File(...)
 ):
-    # Check if model exists in our mock data
-    model_exists = any(model.name == model_name for model in MOCK_MODELS)
-    if not model_exists:
+    # Get model and verify it's a classifier
+    model_info = model_loader.get_model_info(model_name)
+    if not model_info or model_info.model_type != "classifier":
         raise HTTPException(
             status_code=404,
-            detail=f"Model '{model_name}' not found"
+            detail=f"Classifier model '{model_name}' not found"
         )
     
+    model = model_loader.get_model(model_name)
+    
     try:
-        # Mock prediction - in reality, this would analyze the CSV
-        # Here we'll return a random weakest link for testing
-        import random
-        predicted_class = random.choice(list(WeakLink))
+        # Read and process the file
+        contents = await file.read()
+        df = pd.read_csv(pd.io.common.BytesIO(contents))
+        
+        # Make prediction
+        predicted_class = model.predict(df)[0]
         
         return WeakestLinkResponse(
             model_name=model_name,
             weakest_link=predicted_class
         )
     
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
