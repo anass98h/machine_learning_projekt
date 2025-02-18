@@ -53,6 +53,7 @@ jobs:
         run: |
           cd frontend
           npm install --force
+          npm install @testing-library/jest-dom @babel/plugin-proposal-private-property-in-object --save-dev --force
 
       - name: Frontend - Run tests
         run: |
