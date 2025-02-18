@@ -10,17 +10,17 @@ jobs:
   quality-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       # Python Setup
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.13.1" # Updated Python version
 
       # Node Setup
       - name: Set up Node
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: "16"
 
@@ -28,6 +28,7 @@ jobs:
       - name: ML - Install dependencies
         run: |
           cd ML
+          python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
 
       - name: ML - Run tests
@@ -39,6 +40,7 @@ jobs:
       - name: Backend - Install dependencies
         run: |
           cd backend
+          python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements.txt
 
       - name: Backend - Run tests
