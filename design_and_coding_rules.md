@@ -10,8 +10,8 @@
    - ML Development
    - Backend Development
    - Frontend Development
-6. [Part 2] Workflows and CI/CD
-7. [Part 2] Deployment and Maintenance
+6. Workflows and CI/CD
+7. Deployment and Maintenance
 
 ## 1. Introduction
 
