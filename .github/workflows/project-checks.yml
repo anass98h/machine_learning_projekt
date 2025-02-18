@@ -52,7 +52,7 @@ jobs:
       - name: Frontend - Install dependencies
         run: |
           cd frontend
-          npm ci --force
+          npm install --force
 
       - name: Frontend - Run tests
         run: |
