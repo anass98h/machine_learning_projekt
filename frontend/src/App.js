@@ -3,13 +3,12 @@ import axios from "axios";
 import GaugeChart from "react-gauge-chart";
 
 function App() {
-
   // State for the active tab
   const [activeTab, setActiveTab] = useState("Regression"); // Default: Regression
 
   // Common state
   const [models, setModels] = useState([]); // state for models
-  const [selectedModel, setSelectedModel] = useState(""); // state for selected model 
+  const [selectedModel, setSelectedModel] = useState(""); // state for selected model
   const [error, setError] = useState(""); // state for error
   const [successMessage, setSuccessMessage] = useState(""); // state for success message
   const [file, setFile] = useState(null); // state for the uploaded file
@@ -24,18 +23,16 @@ function App() {
   const [modelsLoaded, setModelsLoaded] = useState(0); // state for models loaded
   const [refreshing, setRefreshing] = useState(false); // state for refreshing
 
-  // State for the classification model 
+  // State for the classification model
   const [weakestLink, setWeakestlink] = useState(null); // Per salvare classe e probabilità
   const [selectedCategorizer, setSelectedCategorizer] = useState(""); // Modello di classificazione selezionato
   const [categorizingModels, setCategorizingModels] = useState([]); // Modelli di classificazione
-
 
   useEffect(() => {
     Handlerun();
     fetchHealthCheck();
     fetchCategorizingModels();
   }, []);
-
 
   // Update handleRun function to handle the models list
 
@@ -76,7 +73,7 @@ function App() {
     }
   };
 
-  // Update handleRefreshModels function 
+  // Update handleRefreshModels function
   const handleRefreshModels = async () => {
     setRefreshing(true);
     setError("");
@@ -127,7 +124,7 @@ function App() {
     try {
       // Call the endpoint to refresh categorizing models
       const refreshResponse = await axios.post(
-        "http://localhost:8000/refresh-categorizing-models"
+        "http://localhost:8000/refresh-models"
       );
       setSuccessMessage(refreshResponse.data.message);
 
@@ -173,22 +170,15 @@ function App() {
     }
   };
 
-  // Update handleFileUpload to handle prediction results
   const handleFileUpload = async (endpoint) => {
     if (!file) {
       setError("Please upload a file!");
       return;
     }
 
-    // Check file type based on model type
-
-    if (endpoint === "predict" && (!file.name.endsWith(".csv") || file.type !== "text/csv")) {
-      setError("Invalid file format! Please upload a CSV file for regression.");
-      return;
-    }
-
-    if (endpoint === "classify-weakest-link" && (!file.name.endsWith(".xlsx") || file.type !== "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
-      setError("Invalid file format! Please upload an XLSX file for classification.");
+    // Check for CSV file for both endpoints
+    if (!file.name.endsWith(".csv") || file.type !== "text/csv") {
+      setError("Invalid file format! Please upload a CSV file.");
       return;
     }
 
@@ -219,27 +209,24 @@ function App() {
 
       if (endpoint === "predict") {
         const data = response.data;
-
-        // Update states with prediction results
         setCategory(data.category);
-        setScore(data.score); // Store raw score
+        setScore(data.score);
         setModelName(data.model_name);
         setSuccessMessage("Prediction completed successfully!");
-
       } else if (endpoint === "classify-weakest-link") {
         const data = response.data;
         setWeakestlink(data.weakest_link);
         setModelName(data.model_name);
         setSuccessMessage("Classification completed successfully!");
       }
-
     } catch (error) {
-      console.error("Error during the operation", error);
+      console.error("Error during the operation:", error);
       if (error.response?.data?.detail) {
         setError(error.response.data.detail);
       } else {
         setError(
-          error.message || "An unknown error occurred during file upload. Please try again.");
+          error.message || "An unknown error occurred. Please try again."
+        );
       }
     } finally {
       setLoading(false);
@@ -301,6 +288,7 @@ function App() {
       backgroundColor: "white",
       borderRadius: "10px",
       padding: "20px",
+      marginTop: "20px",
       boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
       gridColumn: "1 / -1",
     },
@@ -518,19 +506,40 @@ function App() {
       borderBottom: "2px solid #1e40af",
       color: "#1e40af",
     },
-
   };
 
   // function for the colors
   const getWeakestLinkColor = (link) => {
-    if (["ForwardHead", "ExcessiveForwardLean"].includes(link)) return "#e53e3e"; // Rosso
+    if (["ForwardHead", "ExcessiveForwardLean"].includes(link))
+      return "#e53e3e"; // Rosso
     if (["KneeMovesInward", "ArmFallForward"].includes(link)) return "#dd6b20"; // Arancione
     return "#38a169"; // Verde
   };
 
-  return (
+  const handleTabChange = (tab) => {
+    // Reset common states
+    setError("");
+    setSuccessMessage("");
+    setFile(null);
 
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+    // Reset results based on tab
+    if (tab === "Regression") {
+      setScore(0);
+      setCategory("");
+      setModelName("");
+    } else {
+      setWeakestlink(null);
+      setModelName("");
+    }
+
+    // Set the active tab
+    setActiveTab(tab);
+  };
+
+  return (
+    <div
+      style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
+    >
       <nav style={dashboardStyles.navbar}>
         <div style={dashboardStyles.navContent}>
           <div style={dashboardStyles.titleContainer}>
@@ -559,16 +568,18 @@ function App() {
             ...dashboardStyles.tab,
             ...(activeTab === "Regression" ? dashboardStyles.activeTab : {}),
           }}
-          onClick={() => setActiveTab("Regression")}
+          onClick={() => handleTabChange("Regression")}
         >
           Regression
         </div>
         <div
           style={{
             ...dashboardStyles.tab,
-            ...(activeTab === "Classification" ? dashboardStyles.activeTab : {}),
+            ...(activeTab === "Classification"
+              ? dashboardStyles.activeTab
+              : {}),
           }}
-          onClick={() => setActiveTab("Classification")}
+          onClick={() => handleTabChange("Classification")}
         >
           Classification
         </div>
@@ -608,7 +619,9 @@ function App() {
                   disabled={refreshing}
                   style={{
                     ...dashboardStyles.refreshButton,
-                    ...(refreshing ? dashboardStyles.refreshButtonSpinning : {}),
+                    ...(refreshing
+                      ? dashboardStyles.refreshButtonSpinning
+                      : {}),
                   }}
                 >
                   {refreshing ? "Refreshing..." : "Refresh Models"}
@@ -649,11 +662,13 @@ function App() {
                   type="file"
                   accept=".csv"
                   onChange={(e) => setFile(e.target.files[0])}
-                  style={{ display: "none" }}
+                  style={dashboardStyles.fileInput}
                 />
               </label>
               {file && (
-                <span style={dashboardStyles.fileName}>Selected: {file.name}</span>
+                <span style={dashboardStyles.fileName}>
+                  Selected: {file.name}
+                </span>
               )}
               <button
                 onClick={() => handleFileUpload("predict")}
@@ -673,101 +688,108 @@ function App() {
               <div style={dashboardStyles.success}>{successMessage}</div>
             )}
           </div>
+        </div>
+      )}
 
-          {/* Prediction Results Card */}
-          {score > 0 && (
-            <div style={dashboardStyles.fullWidthCard}>
-              <h3 style={dashboardStyles.cardHeader}>Prediction Results</h3>
-              <div style={dashboardStyles.resultsContainer}>
-                <div style={dashboardStyles.gaugeContainer}>
-                  <GaugeChart
-                    id="gauge-chart"
-                    nrOfLevels={4}
-                    colors={["#ff7675", "#ffeaa7", "#74b9ff", "#55efc4"]}
-                    percent={score}
-                    arcWidth={0.3}
-                    textColor="#2d3436"
-                    formatTextValue={(value) => `${value}%`}
-                    arcsLength={[0.39, 0.3, 0.2, 0.11]}
-                  />
-                  <div style={dashboardStyles.scoreValue}>
-                    Raw Score: {score.toFixed(2)}
-                  </div>
+      {/* Prediction Results Card */}
+      {activeTab === "Regression" && score > 0 && (
+        <div
+          style={{
+            ...dashboardStyles.fullWidthCard,
+            width: "100%", // Changed from grid-column to explicit width
+            maxWidth: "1200px",
+            margin: "20px auto 0", // Added margin to separate from cards above
+          }}
+        >
+          <div style={dashboardStyles.fullWidthCard}>
+            <h3 style={dashboardStyles.cardHeader}>Prediction Results</h3>
+            <div style={dashboardStyles.resultsContainer}>
+              <div style={dashboardStyles.gaugeContainer}>
+                <GaugeChart
+                  id="gauge-chart"
+                  nrOfLevels={4}
+                  colors={["#ff7675", "#ffeaa7", "#74b9ff", "#55efc4"]}
+                  percent={score}
+                  arcWidth={0.3}
+                  textColor="#2d3436"
+                  formatTextValue={(value) => `${value}%`}
+                  arcsLength={[0.39, 0.3, 0.2, 0.11]}
+                />
+                <div style={dashboardStyles.scoreValue}>
+                  Raw Score: {score.toFixed(2)}
+                </div>
+              </div>
+
+              <div style={dashboardStyles.resultDetails}>
+                <div style={dashboardStyles.detailsRow}>
+                  <span style={dashboardStyles.detailLabel}>Model:</span>
+                  <span>{modelName}</span>
+                </div>
+                <div style={dashboardStyles.detailsRow}>
+                  <span style={dashboardStyles.detailLabel}>Category:</span>
+                  <span>{category}</span>
+                </div>
+                <div style={dashboardStyles.detailsRow}>
+                  <span style={dashboardStyles.detailLabel}>
+                    Prediction Score:
+                  </span>
+                  <span>{score}</span>
                 </div>
 
-                <div style={dashboardStyles.resultDetails}>
-                  <div style={dashboardStyles.detailsRow}>
-                    <span style={dashboardStyles.detailLabel}>Model:</span>
-                    <span>{modelName}</span>
+                {/* Score Legend */}
+                <div style={dashboardStyles.legend}>
+                  <div style={dashboardStyles.legendTitle}>
+                    Score Categories
                   </div>
-                  <div style={dashboardStyles.detailsRow}>
-                    <span style={dashboardStyles.detailLabel}>Category:</span>
-                    <span>{category}</span>
-                  </div>
-                  <div style={dashboardStyles.detailsRow}>
-                    <span style={dashboardStyles.detailLabel}>
-                      Prediction Score:
-                    </span>
-                    <span>{score}</span>
-                  </div>
-
-                  {/* Score Legend */}
-                  <div style={dashboardStyles.legend}>
-                    <div style={dashboardStyles.legendTitle}>
-                      Score Categories
+                  <div style={dashboardStyles.legendGrid}>
+                    <div style={dashboardStyles.legendItem}>
+                      <div
+                        style={{
+                          ...dashboardStyles.legendDot,
+                          backgroundColor: "#ff7675",
+                        }}
+                      ></div>
+                      <span style={dashboardStyles.legendText}>0-39: Bad</span>
                     </div>
-                    <div style={dashboardStyles.legendGrid}>
-                      <div style={dashboardStyles.legendItem}>
-                        <div
-                          style={{
-                            ...dashboardStyles.legendDot,
-                            backgroundColor: "#ff7675",
-                          }}
-                        ></div>
-                        <span style={dashboardStyles.legendText}>0-39: Bad</span>
-                      </div>
-                      <div style={dashboardStyles.legendItem}>
-                        <div
-                          style={{
-                            ...dashboardStyles.legendDot,
-                            backgroundColor: "#ffeaa7",
-                          }}
-                        ></div>
-                        <span style={dashboardStyles.legendText}>
-                          40-69: Good
-                        </span>
-                      </div>
-                      <div style={dashboardStyles.legendItem}>
-                        <div
-                          style={{
-                            ...dashboardStyles.legendDot,
-                            backgroundColor: "#74b9ff",
-                          }}
-                        ></div>
-                        <span style={dashboardStyles.legendText}>
-                          70-89: Great
-                        </span>
-                      </div>
-                      <div style={dashboardStyles.legendItem}>
-                        <div
-                          style={{
-                            ...dashboardStyles.legendDot,
-                            backgroundColor: "#55efc4",
-                          }}
-                        ></div>
-                        <span style={dashboardStyles.legendText}>
-                          90-100: Excellent
-                        </span>
-                      </div>
+                    <div style={dashboardStyles.legendItem}>
+                      <div
+                        style={{
+                          ...dashboardStyles.legendDot,
+                          backgroundColor: "#ffeaa7",
+                        }}
+                      ></div>
+                      <span style={dashboardStyles.legendText}>
+                        40-69: Good
+                      </span>
+                    </div>
+                    <div style={dashboardStyles.legendItem}>
+                      <div
+                        style={{
+                          ...dashboardStyles.legendDot,
+                          backgroundColor: "#74b9ff",
+                        }}
+                      ></div>
+                      <span style={dashboardStyles.legendText}>
+                        70-89: Great
+                      </span>
+                    </div>
+                    <div style={dashboardStyles.legendItem}>
+                      <div
+                        style={{
+                          ...dashboardStyles.legendDot,
+                          backgroundColor: "#55efc4",
+                        }}
+                      ></div>
+                      <span style={dashboardStyles.legendText}>
+                        90-100: Excellent
+                      </span>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          )}
-
+          </div>
         </div>
-
       )}
 
       {/* Contenuto del tab Classification */}
@@ -802,7 +824,9 @@ function App() {
               {categorizingModels.map((model) => (
                 <div key={model.name} style={dashboardStyles.modelItem}>
                   <span>{model.name}</span>
-                  <span style={dashboardStyles.modelVersion}>v{model.version}</span>
+                  <span style={dashboardStyles.modelVersion}>
+                    v{model.version}
+                  </span>
                 </div>
               ))}
             </div>
@@ -832,11 +856,13 @@ function App() {
                   type="file"
                   accept=".csv"
                   onChange={(e) => setFile(e.target.files[0])}
-                  style={{ display: "none" }}
+                  style={dashboardStyles.fileInput}
                 />
               </label>
               {file && (
-                <span style={dashboardStyles.fileName}>Selected: {file.name}</span>
+                <span style={dashboardStyles.fileName}>
+                  Selected: {file.name}
+                </span>
               )}
               <button
                 onClick={() => handleFileUpload("classify-weakest-link")}
@@ -855,13 +881,23 @@ function App() {
         </div>
       )}
 
-
       {/* Classification Results Card */}
-      {weakestLink && (
-
-        <div style={{ ...dashboardStyles.fullWidthCard, marginTop: "45px", width: "58%", maxWidth: "1200px", margin: "0 auto" }}>
+      {activeTab === "Classification" && weakestLink && (
+        <div
+          style={{
+            ...dashboardStyles.fullWidthCard,
+            width: "100%", // Full width to match other cards
+            maxWidth: "1200px",
+            margin: "20px auto 0", // Consistent margin with regression results
+            gridColumn: "1 / -1", // Ensure it spans full width in grid
+          }}
+        >
           <h3 style={dashboardStyles.cardHeader}>Classification Results</h3>
-          <div style={{ display: "flex", flexDirection: "column", padding: "50px" }}>
+          <div
+            style={{
+              padding: "30px", // Reduced padding for better proportions
+            }}
+          >
             <div style={dashboardStyles.resultDetails}>
               <div style={dashboardStyles.detailsRow}>
                 <span style={dashboardStyles.detailLabel}>Model:</span>
@@ -883,13 +919,8 @@ function App() {
           </div>
         </div>
       )}
-
-
-
     </div>
   );
 }
-
-
 
 export default App;
