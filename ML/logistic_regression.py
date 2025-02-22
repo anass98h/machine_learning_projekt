@@ -1,6 +1,6 @@
 import pandas as pd
 import sys
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.pipeline import Pipeline
@@ -27,6 +27,7 @@ LR_PARAMS = {
 }
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
+N_SPLITS = 5  # For cross-validation
 
 with mlflow.start_run():
     
@@ -88,8 +89,34 @@ with mlflow.start_run():
         "model_type": "LogisticRegression",
         "test_size": TEST_SIZE,
         "random_state": RANDOM_STATE,
+        "n_splits": N_SPLITS,
         **LR_PARAMS
     })
+    
+    # ======================
+    # 1) Cross-Validation on TRAIN
+    # ======================
+    skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=RANDOM_STATE)
+
+    # We use cross_val_score to get an array of scores
+    # scoring='accuracy' for classification
+    cv_scores = cross_val_score(
+        pipeline, 
+        X_train, 
+        y_train, 
+        cv=skf, 
+        scoring='accuracy'
+    )
+
+    # Calculate mean and std of the CV accuracy
+    cv_mean_accuracy = cv_scores.mean()
+    cv_std_accuracy = cv_scores.std()
+
+    # Log these to MLflow
+    mlflow.log_metric("cv_mean_accuracy", cv_mean_accuracy)
+    mlflow.log_metric("cv_std_accuracy", cv_std_accuracy)
+    
+    
 
     # ======================
     # Model Training
@@ -123,10 +150,7 @@ with mlflow.start_run():
     model_uri = f"runs:/{mlflow.active_run().info.run_id}/logistic_model"
     mlflow.register_model(model_uri, model_name)
 
-    # ======================
-    # Save Model Locally
-    # ======================
-    joblib.dump(pipeline, "ML/saved models/logistic_weaklink_classifier.pkl")
+
 
     print("MLflow run completed successfully!")
     print(f"Run ID: {mlflow.active_run().info.run_id}")
