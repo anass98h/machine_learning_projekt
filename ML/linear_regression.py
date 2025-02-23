@@ -4,11 +4,10 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
+from sklearn.model_selection import KFold, cross_validate
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-import matplotlib.pyplot as plt
-import joblib
 import numpy as np
 import mlflow
 import mlflow.sklearn
@@ -37,6 +36,15 @@ symmetricalColumns = [
     (13, 14), (16, 17), (20, 21), (23, 24)  # NASM symmetry
 ]
 
+features_to_square = [
+    "No_1_Angle_Deviation",
+    "No_2_Angle_Deviation",
+    "No_3_NASM_Deviation",
+    "No_12_NASM_Deviation",
+    "No_17_NASM_Deviation",
+    "No_1_Time_Deviation",
+    "No_2_Time_Deviation"
+]
 
 
 
@@ -52,60 +60,86 @@ column_dropper = ColumnTransformer(
 
 feature_combiner = custom_transformers.CombineCorrelatedFeatures(symmetricalColumns)
 symmetrical_Columns = custom_transformers.symmetricalColumns(symmetricalColumns)
+feature_weights = custom_transformers.FeatureWeights(feature_weights)
+features_to_square = custom_transformers.SquareFeatures(columns=features_to_square, replace=False) 
 
 pipeline = Pipeline(
-    steps=[        
-        #('feature_weights', FeatureWeights(feature_weights)),
+    steps=[       
+        #('feature_weights', feature_weights), 
         #('symmetrical_columns', symmetrical_Columns),
+        
+        ('features_to_square', features_to_square),
         ('combine_sym', feature_combiner),
         ('columndrop', column_dropper),
         ('normalize', StandardScaler()),
         ('model', LinearRegression())
     ]
 )
+corossvlidat_if_1 = 0
+if corossvlidat_if_1 == 1 :
+    # Set up 5-fold cross validation (as described in your lecture slides)
+    cv = KFold(n_splits=5, shuffle=True, random_state=42)
+    # Define scoring: note that sklearn's "neg_mean_squared_error" returns negative values
+    scoring = {'mse': 'neg_mean_squared_error', 'r2': 'r2'}
 
-with mlflow.start_run():
-    pipeline.fit(x_train, y_train)
+    with mlflow.start_run():
+        # Perform cross-validation on the entire dataset
+        cv_results = cross_validate(pipeline, x, y, cv=cv, scoring=scoring)
+        # Compute mean metrics; reverse sign for MSE
+        mean_mse = -np.mean(cv_results['test_mse'])
+        mean_r2 = np.mean(cv_results['test_r2'])
+        
+        # Log parameters and cross-validated metrics in mlflow
+        mlflow.log_param("cv_folds", 5)
+        mlflow.log_param("random_state", 42)
+        mlflow.log_metric("mse", mean_mse)
+        mlflow.log_metric("r2", mean_r2)
+        
+        # Fit the final model on the entire dataset and log it in mlflow
+        pipeline.fit(x, y)
+        mlflow.sklearn.log_model(pipeline, "linear_regression_model_v5")
+        model_info = mlflow.sklearn.log_model(
+            sk_model=pipeline,
+            artifact_path="linear_regression_model_v5"
+        )
+        mlflow.register_model(
+            model_uri=model_info.model_uri,
+            name="linear_regression_model_v5"
+        )
+        
+        print("Cross-Validated Mean Squared Error: ", mean_mse)
+        print("Cross-Validated R2 Score: ", mean_r2)
 
-    y_pred = pipeline.predict(x_test)
+else:
+    with mlflow.start_run():
+        pipeline.fit(x_train, y_train)
 
-    mse = mean_squared_error(y_test, y_pred)
-    r2 = r2_score(y_test, y_pred)
+        y_pred = pipeline.predict(x_test)
 
-    mlflow.log_param("test_size", 0.2)
-    mlflow.log_param("random_state", 42)
-    mlflow.log_metric("mse", mse)
-    mlflow.log_metric("r2", r2)
-    
-    mlflow.sklearn.log_model(pipeline, "linear_regression_model_v5")
-    
-    
-    model_name = "linear_regression_model_v5"
-    
-    model_info = mlflow.sklearn.log_model(
-        sk_model=pipeline,
-        artifact_path=model_name,
-                                        )
-    
-    mlflow.register_model(
-        model_uri=model_info.model_uri,
-        name=model_name
-    )
+        mse = mean_squared_error(y_test, y_pred)
+        r2 = r2_score(y_test, y_pred)
 
-    print("Mean Squared Error: ", mse)
-    print("R2 Score: ", r2)
-    
-    # Save the model
-    joblib.dump(pipeline, "ML/saved models/linear_regression_model_v5.pkl")
-    print("Model saved successfully!")
+        mlflow.log_param("test_size", 0.2)
+        mlflow.log_param("random_state", 42)
+        mlflow.log_metric("mse", mse)
+        mlflow.log_metric("r2", r2)
+        
+        mlflow.sklearn.log_model(pipeline, "linear_regression_model_v5")
+        
+        
+        model_name = "linear_regression_model_v5"
+        
+        model_info = mlflow.sklearn.log_model(
+            sk_model=pipeline,
+            artifact_path=model_name,
+                                            )
+        
+        mlflow.register_model(
+            model_uri=model_info.model_uri,
+            name=model_name
+        )
 
-
-
-
-
-
-
-
-
-
+        print("Mean Squared Error: ", mse)
+        print("R2 Score: ", r2)
+        
 

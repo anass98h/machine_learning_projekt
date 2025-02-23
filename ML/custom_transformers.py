@@ -24,22 +24,36 @@ class CombineCorrelatedFeatures(BaseEstimator, TransformerMixin):
 
 class FeatureWeights(BaseEstimator, TransformerMixin):
     def __init__(self, feature_weights):
+        """
+        feature_weights: dictionary where keys are column indices (of the original DataFrame)
+                         and values are the number of times that column should appear in total.
+        For example, if a column has a weight of 4, it will appear once in its original position,
+        and three extra duplicate columns will be appended.
+        """
         self.feature_weights = feature_weights
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
-        xWeighted = X.copy()
-        for colIdx, weight in self.feature_weights.items():
-            if colIdx < len(xWeighted.columns):
-                colName = xWeighted.columns[colIdx]
-                xWeighted[colName] *= weight
-                #print(f"Column {colName} weighted by {weight}")
-            else:
-                print(f"Column {colIdx} not found in the dataset")
-
-        return xWeighted
+        # Ensure we have a DataFrame with the original column order.
+        X_in = pd.DataFrame(X.copy(), columns=X.columns)
+        
+        # Create a DataFrame to hold the duplicate columns.
+        duplicates = pd.DataFrame(index=X_in.index)
+        
+        # Iterate over the original columns and create duplicates as needed.
+        for i, col in enumerate(X_in.columns):
+            if i in self.feature_weights:
+                total_count = self.feature_weights[i]
+                # Only add duplicates if total_count > 1 (since original column remains)
+                for j in range(total_count - 1):
+                    new_col_name = f"{col}_dup{j+1}"
+                    duplicates[new_col_name] = X_in[col]
+        
+        # Append the duplicate columns to the end of the original DataFrame.
+        X_out = pd.concat([X_in, duplicates], axis=1)
+        return X_out
 
 
 class symmetricalColumns(BaseEstimator, TransformerMixin):
@@ -60,3 +74,29 @@ class symmetricalColumns(BaseEstimator, TransformerMixin):
             X_sym[new_col_name] = X_sym[col1_name] + X_sym[col2_name]
                 
         return X_sym
+    
+class SquareFeatures(BaseEstimator, TransformerMixin):
+    def __init__(self, columns, replace=False):
+        """
+        Parameters:
+        - columns: list of column names to square.
+        - replace: if True, overwrite the original column with its square.
+                   If False (default), add a new column with a '_squared' suffix.
+        """
+        self.columns = columns
+        self.replace = replace
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        # Ensure X is a DataFrame (this transformer expects a DataFrame)
+        X_transformed = pd.DataFrame(X.copy(), columns=X.columns)
+        for col in self.columns:
+            if col in X_transformed.columns:
+                squared = X_transformed[col] ** 2
+                if self.replace:
+                    X_transformed[col] = squared
+                else:
+                    X_transformed[f"{col}_squared"] = squared
+        return X_transformed
