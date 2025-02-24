@@ -1,4 +1,4 @@
-name: Project Checks
+name: CI/CD Pipeline
 
 on:
   push:
