@@ -85,28 +85,26 @@ class TestFeatureWeights:
 
         actual = weighter.transform(sample_df)
 
-        expected = pd.DataFrame({
-            "A": [1, 2, 3],
-            "B": [8, 10, 12],
-            "C": [7, 8, 9],
-            "D": [10, 11, 12]
+        expected_duplicated = pd.DataFrame({
+            "B_dup1": [4, 5, 6]
         })
+        expected = sample_df.copy().join(expected_duplicated)
 
         pdt.assert_frame_equal(actual, expected)
 
 
     def test_weight_multiple_features(self, sample_df):
-        weights = {0: 5, 1: 4, 2: 3, 3: 2}
+        weights = {0: 3, 2: 2}
         weighter = custom_transformers.FeatureWeights(weights)
 
         actual = weighter.transform(sample_df)
 
-        expected = pd.DataFrame({
-            "A": [5, 10, 15],
-            "B": [16, 20, 24],
-            "C": [21, 24, 27],
-            "D": [20, 22, 24]
+        expected_duplicated = pd.DataFrame({
+            "A_dup1": [1, 2, 3],
+            "A_dup2": [1, 2, 3],
+            "C_dup1": [7, 8, 9],
         })
+        expected = sample_df.copy().join(expected_duplicated)
 
         pdt.assert_frame_equal(actual, expected)
 
@@ -120,36 +118,13 @@ class TestFeatureWeights:
         pdt.assert_frame_equal(actual, expected)
 
 
-    def test_weight_float_weights(self, sample_df):
-        weights = {0: 1.5}
-        weighter = custom_transformers.FeatureWeights(weights)
-
-        actual = weighter.transform(sample_df)
-
-        expected = pd.DataFrame({
-            "A": [1.5, 3, 4.5],
-            "B": [4, 5, 6],
-            "C": [7, 8, 9],
-            "D": [10, 11, 12]
-        })
-
-        pdt.assert_frame_equal(actual, expected)
-
-
-    def test_weight_out_of_range_indices(self, sample_df):
+    def test_weight_invalid_indices(self, sample_df):
         weights = {4: 2}
         weighter = custom_transformers.FeatureWeights(weights)
 
         actual = weighter.transform(sample_df)
         expected = sample_df
         pdt.assert_frame_equal(actual, expected)
-
-
-    def test_weight_non_integer_indices(self, sample_df):
-        weights = {1.1: 2}
-        weighter = custom_transformers.FeatureWeights(weights)
-        with pytest.raises(IndexError):
-            weighter.transform(sample_df)
 
 
     def test_weight_non_numeric_weights(self, sample_df):
@@ -219,3 +194,69 @@ class TestSymmetricalColumns:
 
         with pytest.raises(ValueError):
             symmetrizer.transform(sample_df)
+
+
+class TestSquareFeatures:
+
+    def test_square_single_feature(self, sample_df):
+        features_to_square = ["B"]
+        squarer = custom_transformers.SquareFeatures(features_to_square)
+
+        actual = squarer.transform(sample_df)
+
+        expected_squared = pd.DataFrame({
+            "B_squared": [16, 25, 36]
+        })
+        expected = sample_df.copy().join(expected_squared)
+
+        pdt.assert_frame_equal(actual, expected)
+    
+
+    def test_square_multiple_features(self, sample_df):
+        features_to_square = ["A", "B"]
+        squarer = custom_transformers.SquareFeatures(features_to_square)
+
+        actual = squarer.transform(sample_df)
+
+        expected_squared = pd.DataFrame({
+            "A_squared": [1, 4, 9],
+            "B_squared": [16, 25, 36]
+        })
+        expected = sample_df.copy().join(expected_squared)
+
+        pdt.assert_frame_equal(actual, expected)
+    
+
+    def test_square_replace_feature(self, sample_df):
+        features_to_square = ["B"]
+        squarer = custom_transformers.SquareFeatures(features_to_square, True)
+
+        actual = squarer.transform(sample_df)
+
+        expected = pd.DataFrame({
+            "A": [1, 2, 3],
+            "B": [16, 25, 36],
+            "C": [7, 8, 9],
+            "D": [10, 11, 12]
+        })
+
+        pdt.assert_frame_equal(actual, expected)
+    
+
+    def test_square_no_features(self, sample_df):
+        features_to_square = []
+        squarer = custom_transformers.SquareFeatures(features_to_square)
+
+        actual = squarer.transform(sample_df)
+        expected = sample_df
+        pdt.assert_frame_equal(actual, expected)
+    
+
+    def test_square_invalid_feature(self, sample_df):
+        features_to_square = ["No_Such_Feature"]
+        squarer = custom_transformers.SquareFeatures(features_to_square)
+
+        actual = squarer.transform(sample_df)
+        expected = sample_df
+        pdt.assert_frame_equal(actual, expected)
+    
