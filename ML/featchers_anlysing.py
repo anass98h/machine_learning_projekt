@@ -3,12 +3,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
+from pathlib import Path
+import os
 
 # Change this path to your .xls file location
-file_path = "ML/data/AimoScore_WeakLink_big_scores.xls"
+# file_path = "ML/data/AimoScore_WeakLink_big_scores.xls"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+file_path = os.path.join(script_dir, "data", "AimoScore_WeakLink_big_scores.xls")
 
 # Load the data
 df = pd.read_excel(file_path)
+
 
 # Assume the first column is the target (response) and the rest are features
 target = df.iloc[:, 0]
