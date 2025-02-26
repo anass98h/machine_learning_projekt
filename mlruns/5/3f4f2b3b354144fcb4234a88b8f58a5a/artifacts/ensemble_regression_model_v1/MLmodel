@@ -1,0 +1,20 @@
+artifact_path: ensemble_regression_model_v1
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.13.2
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.6.1
+mlflow_version: 2.20.1
+model_size_bytes: 9009224
+model_uuid: 1b86f7054fe24921a96a87062d544490
+run_id: 3f4f2b3b354144fcb4234a88b8f58a5a
+utc_time_created: '2025-02-26 02:40:29.355105'

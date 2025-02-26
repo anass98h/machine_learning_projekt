@@ -21,8 +21,8 @@ mlflow.set_experiment("logistic_regression_experiment")
 # ======================
 LR_PARAMS = {
     'C': 0.5,                # Inverse of regularization strength
-    'penalty': 'l1',         # or 'l1', 'elasticnet' (with solver='saga'), etc.
-    'solver': 'liblinear',       # or 'liblinear', 'saga' for L1 regularization
+    'penalty': 'l2',         # or 'l1', 'elasticnet' (with solver='saga'), etc.
+    'solver': 'lbfgs',       # or 'liblinear', 'saga' for L1 regularization
     'max_iter': 1000         # increase if you get convergence warnings
 }
 TEST_SIZE = 0.2
@@ -54,17 +54,23 @@ with mlflow.start_run():
     df.drop(columns=["ID"], inplace=True)
 
     # ======================
-    # Handle Rare Classes
+    # Balance Classes by Oversampling
     # ======================
-    counts = df['Weakest'].value_counts()
-    rare_classes = counts[counts < 2].index
-    df = df[~df['Weakest'].isin(rare_classes)]
+    # Instead of dropping rare classes, we duplicate (oversample) undersampled ones.
+    # We first determine the maximum count among the classes.
+    max_count = df['Weakest'].value_counts().max()
+    df_list = []
+    for label, group in df.groupby('Weakest'):
+        # Oversample this class to match max_count using replacement.
+        group_oversampled = group.sample(max_count, replace=True, random_state=RANDOM_STATE)
+        df_list.append(group_oversampled)
+    df_balanced = pd.concat(df_list).reset_index(drop=True)
 
     # ======================
     # Train/Test Split
     # ======================
-    X = df.drop(columns=["Weakest"])
-    y = df["Weakest"]
+    X = df_balanced.drop(columns=["Weakest"])
+    y = df_balanced["Weakest"]
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, 
@@ -76,7 +82,7 @@ with mlflow.start_run():
     # ======================
     # Pipeline Construction
     # ======================
-    # We'll often scale features for logistic regression
+    # We'll often scale features for logistic regression.
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
         ('clf', LogisticRegression(**LR_PARAMS))
@@ -98,8 +104,6 @@ with mlflow.start_run():
     # ======================
     skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=RANDOM_STATE)
 
-    # We use cross_val_score to get an array of scores
-    # scoring='accuracy' for classification
     cv_scores = cross_val_score(
         pipeline, 
         X_train, 
@@ -108,16 +112,12 @@ with mlflow.start_run():
         scoring='accuracy'
     )
 
-    # Calculate mean and std of the CV accuracy
     cv_mean_accuracy = cv_scores.mean()
     cv_std_accuracy = cv_scores.std()
 
-    # Log these to MLflow
     mlflow.log_metric("cv_mean_accuracy", cv_mean_accuracy)
     mlflow.log_metric("cv_std_accuracy", cv_std_accuracy)
     
-    
-
     # ======================
     # Model Training
     # ======================
@@ -131,7 +131,6 @@ with mlflow.start_run():
     error_rate = 1 - accuracy
 
     report_dict = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
-
 
     mlflow.log_metrics({
         "accuracy": accuracy,
@@ -149,8 +148,6 @@ with mlflow.start_run():
     model_name = "logistic_weaklink_classifier"
     model_uri = f"runs:/{mlflow.active_run().info.run_id}/logistic_model"
     mlflow.register_model(model_uri, model_name)
-
-
 
     print("MLflow run completed successfully!")
     print(f"Run ID: {mlflow.active_run().info.run_id}")

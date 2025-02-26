@@ -42,6 +42,16 @@ symmetricalColumns = [
 
 # Columns to drop (irrelevant ones)
 irrelevant_columns = [27, 1, 25, 31, 3, 4, 7, 8, 9]
+features_to_square = [
+    "No_1_Angle_Deviation",
+    "No_2_Angle_Deviation",
+    "No_3_NASM_Deviation",
+    "No_12_NASM_Deviation",
+    "No_17_NASM_Deviation",
+    "No_1_Time_Deviation",
+    "No_2_Time_Deviation"
+]
+
 
 # Define a transformer to drop irrelevant columns
 column_dropper = ColumnTransformer(
@@ -51,10 +61,13 @@ column_dropper = ColumnTransformer(
 
 # Custom transformer to combine correlated features
 feature_combiner = custom_transformers.CombineCorrelatedFeatures(symmetricalColumns)
+features_to_square = custom_transformers.SquareFeatures(columns=features_to_square, replace=False) 
+
 
 # Create a preprocessing pipeline that applies the custom feature combination,
 # drops irrelevant columns, and then normalizes the features.
 preprocessor = Pipeline([
+    ('features_to_square', features_to_square),
     ('combine_sym', feature_combiner),
     ('columndrop', column_dropper),
     ('normalize', StandardScaler())

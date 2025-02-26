@@ -54,14 +54,20 @@ feature_df.drop(columns=["AimoScore", "No_1_Time_Deviation",
 df = feature_df.merge(weaklink_df, on="ID", how="inner")
 df.drop(columns=["ID"], inplace=True)
 
-# Handle rare classes (remove classes with fewer than 2 instances)
-counts = df['Weakest'].value_counts()
-rare_classes = counts[counts < 2].index
-df = df[~df['Weakest'].isin(rare_classes)]
+# ----------------------
+# Balance Classes by Oversampling
+# ----------------------
+# Instead of dropping rare classes, we duplicate (oversample) the underrepresented classes.
+max_count = df['Weakest'].value_counts().max()
+df_list = []
+for label, group in df.groupby('Weakest'):
+    group_oversampled = group.sample(max_count, replace=True, random_state=RANDOM_STATE)
+    df_list.append(group_oversampled)
+df_balanced = pd.concat(df_list).reset_index(drop=True)
 
-# Define predictors and response
-X = df.drop(columns=["Weakest"])
-y = df["Weakest"]
+# Define predictors and response using the balanced dataset
+X = df_balanced.drop(columns=["Weakest"])
+y = df_balanced["Weakest"]
 
 # Train/Test Split (with stratification)
 X_train, X_test, y_train, y_test = train_test_split(
