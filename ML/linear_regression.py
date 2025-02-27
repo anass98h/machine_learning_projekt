@@ -12,11 +12,13 @@ import numpy as np
 import mlflow
 import mlflow.sklearn
 import custom_transformers
+from lib.data_loader import load_data
+
 #initiate mlflow
 mlflow.set_tracking_uri("http://localhost:5000")
 mlflow.set_experiment("linear_regression")
 
-df = pd.read_excel("ML/data/AimoScore_WeakLink_big_scores.xls")
+df = load_data()
 
 
 x = df.iloc[:,1:-1]
@@ -44,6 +46,33 @@ features_to_square = [
     "No_17_NASM_Deviation",
     "No_1_Time_Deviation",
     "No_2_Time_Deviation"
+
+    "No_18_NASM_Deviation",
+    "No_9_NASM_Deviation",
+    "No_8_Angle_Deviation",
+    "No_13_Angle_Deviation",
+    "No_5_NASM_Deviation",
+    "No_7_Angle_Deviation",
+    "No_2_NASM_Deviation", 
+    "No_9_Angle_Deviation",
+    "No_10_NASM_Deviation"
+]
+
+
+features_to_cubic = [
+    "No_10_NASM_Deviation",
+    "No_5_Angle_Deviation",
+    "No_1_NASM_Deviation",
+    "No_7_Angle_Deviation",
+    "No_2_NASM_Deviation",
+    "No_4_Angle_Deviation",
+    "No_2_Angle_Deviation",
+    "No_6_NASM_Deviation",
+    "No_12_NASM_Deviation",
+    "No_14_NASM_Deviation",
+    "No_15_NASM_Deviation",
+    "No_6_Angle_Deviation",
+    "No_7_NASM_Deviation"
 ]
 
 
@@ -62,12 +91,13 @@ feature_combiner = custom_transformers.CombineCorrelatedFeatures(symmetricalColu
 symmetrical_Columns = custom_transformers.symmetricalColumns(symmetricalColumns)
 feature_weights = custom_transformers.FeatureWeights(feature_weights)
 features_to_square = custom_transformers.SquareFeatures(columns=features_to_square, replace=False) 
+features_to_cubic = custom_transformers.CubicFeatures(columns=features_to_cubic, replace=False)
 
 pipeline = Pipeline(
     steps=[       
         #('feature_weights', feature_weights), 
         #('symmetrical_columns', symmetrical_Columns),
-        
+        ('features_to_cubic', features_to_cubic),
         ('features_to_square', features_to_square),
         ('combine_sym', feature_combiner),
         ('columndrop', column_dropper),

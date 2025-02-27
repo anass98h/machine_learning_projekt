@@ -12,7 +12,7 @@ DEFAULT_CONFIG = {
     "data_filename": "AimoScore_WeakLink_big_scores.xls",
     "target_column": 0,  # First column is target
     "feature_columns_start": 1,
-    "feature_columns_end": -1,  # Use -1 to indicate all columns until the end
+    "feature_columns_end": -2,  
     "test_size": 0.2,
     "random_state": 42
 }
