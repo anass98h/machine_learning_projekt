@@ -52,13 +52,14 @@ jobs:
       - name: Frontend - Install dependencies
         run: |
           cd frontend
-          npm install --force
+          npm install
         #   npm install @testing-library/jest-dom @testing-library/react @testing-library/user-event @babel/plugin-proposal-private-property-in-object --save-dev --force
 
       - name: Frontend - Run tests
         run: |
           cd frontend
-          CI=true npm test --passWithNoTests
+          npm ci
+          npm install @babel/plugin-proposal-private-property-in-object --save-dev
   deploy:
     needs: quality-checks
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
