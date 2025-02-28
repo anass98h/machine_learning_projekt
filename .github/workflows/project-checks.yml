@@ -55,10 +55,10 @@ jobs:
           npm install --force
         #   npm install @testing-library/jest-dom @testing-library/react @testing-library/user-event @babel/plugin-proposal-private-property-in-object --save-dev --force
 
-    #   - name: Frontend - Run tests
-    #     run: |
-    #       cd frontend
-    #       CI=true npm test --passWithNoTests
+      - name: Frontend - Run tests
+        run: |
+          cd frontend
+          CI=true npm test --passWithNoTests
   deploy:
     needs: quality-checks
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
