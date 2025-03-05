@@ -4,7 +4,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import VotingClassifier, StackingClassifier
+from sklearn.ensemble import VotingClassifier, StackingClassifier, GradientBoostingClassifier, BaggingClassifier, RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score, classification_report
 import mlflow
 import mlflow.sklearn
@@ -29,6 +30,19 @@ LR_PARAMS = {
     'penalty': 'l1',         # Regularization type: 'l1'
     'solver': 'liblinear',   # Suitable solver for L1 penalty
     'max_iter': 1000         # Increase if convergence warnings occur
+}
+BOOSTED_TREE_PARAMS = {
+    'n_estimators': 10,
+    'random_state': 42
+}
+BAGGING_TREE_PARAMS = {
+    'estimator': DecisionTreeClassifier(random_state=42),
+    'n_estimators': 10,
+    'random_state': 42
+}
+RF_PARAMS = {
+    'n_estimators': 10,
+    'random_state': 42
 }
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
@@ -89,18 +103,35 @@ pipeline_lr = Pipeline([
     ('lr', LogisticRegression(**LR_PARAMS))
 ])
 
+pipeline_boosted_tree = Pipeline([
+    ('scaler', StandardScaler()),
+    ('boosted_dt', GradientBoostingClassifier(**BOOSTED_TREE_PARAMS))
+])
+
+pipeline_bagging_tree = Pipeline([
+    ('scaler', StandardScaler()),
+    ('bagged_dt', BaggingClassifier(**BAGGING_TREE_PARAMS))
+])
+
+pipeline_rf = Pipeline([
+    ('scaler', StandardScaler()),
+    ('rf', RandomForestClassifier(**RF_PARAMS))
+])
+
+estimators = [('knn', pipeline_knn), ('lr', pipeline_lr), ('boosted_dt', pipeline_boosted_tree), ('bagged_dt', pipeline_bagging_tree), ('rf', pipeline_rf)]
+
 # ----------------------
 # Ensemble Construction
 # ----------------------
 # Voting ensemble using hard majority voting
 voting_clf = VotingClassifier(
-    estimators=[('knn', pipeline_knn), ('lr', pipeline_lr)],
+    estimators=estimators,
     voting='hard'
 )
 
 # Stacking ensemble: base models plus a meta-learner (here, logistic regression)
 stacking_clf = StackingClassifier(
-    estimators=[('knn', pipeline_knn), ('lr', pipeline_lr)],
+    estimators=estimators,
     final_estimator=LogisticRegression(),
     cv=N_SPLITS
 )
@@ -121,14 +152,17 @@ with mlflow.start_run():
     # Log parameters
     mlflow.log_params({
         "model_type": "Ensemble",
-        "base_models": ["KNN", "LogisticRegression"],
+        "base_models": ["KNN", "LogisticRegression, BoostedTrees", "BaggedTrees", "RandomForest"],
         "ensemble_methods": "Voting and Stacking",
         "voting": "hard",
         "test_size": TEST_SIZE,
         "random_state": RANDOM_STATE,
         "n_splits": N_SPLITS,
         **KNN_PARAMS,
-        **LR_PARAMS
+        **LR_PARAMS,
+        **BOOSTED_TREE_PARAMS,
+        **BAGGING_TREE_PARAMS,
+        **RF_PARAMS
     })
     
     # Fit ensemble models on the training set
