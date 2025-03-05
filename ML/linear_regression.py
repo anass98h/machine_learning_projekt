@@ -46,16 +46,6 @@ features_to_square = [
     "No_17_NASM_Deviation",
     "No_1_Time_Deviation",
     "No_2_Time_Deviation"
-
-    "No_18_NASM_Deviation",
-    "No_9_NASM_Deviation",
-    "No_8_Angle_Deviation",
-    "No_13_Angle_Deviation",
-    "No_5_NASM_Deviation",
-    "No_7_Angle_Deviation",
-    "No_2_NASM_Deviation", 
-    "No_9_Angle_Deviation",
-    "No_10_NASM_Deviation"
 ]
 
 
