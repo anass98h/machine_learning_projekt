@@ -100,3 +100,30 @@ class SquareFeatures(BaseEstimator, TransformerMixin):
                 else:
                     X_transformed[f"{col}_squared"] = squared
         return X_transformed
+
+
+class CubicFeatures(BaseEstimator, TransformerMixin):
+    def __init__(self, columns, replace=False):
+        """
+        Parameters:
+        - columns: list of column names to apply cubic transformation to.
+        - replace: if True, overwrite the original column with its cube.
+                   If False (default), add a new column with a '_cubic' suffix.
+        """
+        self.columns = columns
+        self.replace = replace
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        # Ensure X is a DataFrame (this transformer expects a DataFrame)
+        X_transformed = pd.DataFrame(X.copy(), columns=X.columns)
+        for col in self.columns:
+            if col in X_transformed.columns:
+                cubic = X_transformed[col] ** 3
+                if self.replace:
+                    X_transformed[col] = cubic
+                else:
+                    X_transformed[f"{col}_cubic"] = cubic
+        return X_transformed
