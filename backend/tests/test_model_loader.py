@@ -6,7 +6,7 @@ import pytest
 from pathlib import Path
 import joblib
 import numpy as np
-from app.model_loader import ModelLoader, ModelInfo
+from app.model_loader import ModelLoader
 
 # Define proper classes instead of lambda functions
 class SimpleRegressionModel:

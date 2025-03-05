@@ -48,6 +48,11 @@
   "jest": {
     "transformIgnorePatterns": [
       "/node_modules/(?!axios)"
+    ],
+    "coverageReporters": [
+      "lcov",
+      "json",
+      "text"
     ]
   }
 }
