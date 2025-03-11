@@ -1,15 +1,17 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split, StratifiedKFold, cross_val_score
+from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV, cross_val_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import VotingClassifier, StackingClassifier, GradientBoostingClassifier, BaggingClassifier, RandomForestClassifier
+from sklearn.ensemble import (VotingClassifier, StackingClassifier,
+                              GradientBoostingClassifier, BaggingClassifier,
+                              RandomForestClassifier)
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, classification_report
 import mlflow
 import mlflow.sklearn
-import joblib
 
 # ----------------------
 # MLflow Configuration
@@ -71,7 +73,7 @@ df.drop(columns=["ID"], inplace=True)
 # ----------------------
 # Balance Classes by Oversampling
 # ----------------------
-# Instead of dropping rare classes, we duplicate (oversample) the underrepresented classes.
+# Instead of dropping rare classes, duplicate (oversample) the underrepresented classes.
 max_count = df['Weakest'].value_counts().max()
 df_list = []
 for label, group in df.groupby('Weakest'):
@@ -89,7 +91,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 )
 
 # ----------------------
-# Define Base Pipelines
+# Define Base Pipelines (Base Models)
 # ----------------------
 # Pipeline for KNN classifier (with scaling)
 pipeline_knn = Pipeline([
@@ -103,58 +105,80 @@ pipeline_lr = Pipeline([
     ('lr', LogisticRegression(**LR_PARAMS))
 ])
 
+# Pipeline for Gradient Boosting (with scaling)
 pipeline_boosted_tree = Pipeline([
     ('scaler', StandardScaler()),
     ('boosted_dt', GradientBoostingClassifier(**BOOSTED_TREE_PARAMS))
 ])
 
+# Pipeline for Bagging Decision Trees (with scaling)
 pipeline_bagging_tree = Pipeline([
     ('scaler', StandardScaler()),
     ('bagged_dt', BaggingClassifier(**BAGGING_TREE_PARAMS))
 ])
 
+# Pipeline for Random Forest (with scaling)
 pipeline_rf = Pipeline([
     ('scaler', StandardScaler()),
     ('rf', RandomForestClassifier(**RF_PARAMS))
 ])
 
-estimators = [('knn', pipeline_knn), ('lr', pipeline_lr), ('boosted_dt', pipeline_boosted_tree), ('bagged_dt', pipeline_bagging_tree), ('rf', pipeline_rf)]
+# ----------------------
+# Define the Stacking Ensemble with SVM as the Final Estimator (Endpoint)
+# ----------------------
+# The base estimators are the ones defined above.
+base_estimators = [
+    ('knn', pipeline_knn),
+    ('lr', pipeline_lr),
+    ('boosted_dt', pipeline_boosted_tree),
+    ('bagged_dt', pipeline_bagging_tree),
+    ('rf', pipeline_rf)
+]
 
-# ----------------------
-# Ensemble Construction
-# ----------------------
-# Voting ensemble using hard majority voting
-voting_clf = VotingClassifier(
-    estimators=estimators,
-    voting='hard'
+# The final estimator (endpoint) is an SVM. We wrap it in a pipeline to include scaling.
+final_estimator = Pipeline([
+    ('scaler', StandardScaler()),
+    ('svm', SVC())
+])
+
+# Construct the stacking classifier with the SVM as the final estimator.
+stacking_clf_endpoint = StackingClassifier(
+    estimators=base_estimators,
+    final_estimator=final_estimator,
+    cv=N_SPLITS,
+    n_jobs=-1
 )
 
-# Stacking ensemble: base models plus a meta-learner (here, logistic regression)
-stacking_clf = StackingClassifier(
-    estimators=estimators,
-    final_estimator=LogisticRegression(),
-    cv=N_SPLITS
-)
+# ----------------------
+# Grid Search on the SVM Endpoint
+# ----------------------
+# Define a parameter grid for tuning the SVM used as the final estimator.
+svm_endpoint_grid = {
+    'final_estimator__svm__kernel': ['linear', 'rbf', 'poly', 'sigmoid'],
+    'final_estimator__svm__C': [0.1, 1, 10, 100],
+    'final_estimator__svm__gamma': [1, 0.1, 0.01, 0.001]
+}
 
-# ----------------------
-# Cross-Validation
-# ----------------------
 skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=RANDOM_STATE)
-voting_cv_scores = cross_val_score(voting_clf, X_train, y_train, cv=skf, scoring='accuracy')
-stacking_cv_scores = cross_val_score(stacking_clf, X_train, y_train, cv=skf, scoring='accuracy')
+grid_search_endpoint = GridSearchCV(
+    estimator=stacking_clf_endpoint,
+    param_grid=svm_endpoint_grid,
+    cv=skf,
+    scoring='accuracy',
+    n_jobs=-1
+)
 
 # ----------------------
 # MLflow Run: Training & Evaluation
 # ----------------------
 with mlflow.start_run():
-    mlflow.set_tag("mlflow.runName", "ensemble_voting_and_stacking")
+    mlflow.set_tag("mlflow.runName", "ensemble_with_svm_endpoint")
     
-    # Log parameters
+    # Log ensemble-level parameters
     mlflow.log_params({
-        "model_type": "Ensemble",
-        "base_models": ["KNN", "LogisticRegression, BoostedTrees", "BaggedTrees", "RandomForest"],
-        "ensemble_methods": "Voting and Stacking",
-        "voting": "hard",
+        "model_type": "Ensemble Stacking with SVM Endpoint",
+        "base_models": ["KNN", "LogisticRegression", "BoostedTrees", "BaggedTrees", "RandomForest"],
+        "final_estimator": "SVM",
         "test_size": TEST_SIZE,
         "random_state": RANDOM_STATE,
         "n_splits": N_SPLITS,
@@ -165,37 +189,38 @@ with mlflow.start_run():
         **RF_PARAMS
     })
     
-    # Fit ensemble models on the training set
-    voting_clf.fit(X_train, y_train)
-    stacking_clf.fit(X_train, y_train)
+    # ----------------------
+    # Optimize the SVM endpoint via grid search
+    # ----------------------
+    grid_search_endpoint.fit(X_train, y_train)
+    best_stacking_clf = grid_search_endpoint.best_estimator_
+    mlflow.log_params(grid_search_endpoint.best_params_)  # Log best SVM endpoint parameters
     
-    # Evaluate on the test set
-    voting_pred = voting_clf.predict(X_test)
-    stacking_pred = stacking_clf.predict(X_test)
+    # Cross-validate the best stacking classifier on training data
+    stacking_cv_scores = cross_val_score(best_stacking_clf, X_train, y_train, cv=skf, scoring='accuracy')
     
-    voting_accuracy = accuracy_score(y_test, voting_pred)
-    stacking_accuracy = accuracy_score(y_test, stacking_pred)
+    # Fit the optimized stacking ensemble on the training data
+    best_stacking_clf.fit(X_train, y_train)
+    y_pred = best_stacking_clf.predict(X_test)
+    test_accuracy = accuracy_score(y_test, y_pred)
+    error_rate = 1 - test_accuracy
+    report_dict = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
     
-    # Log cross-validation metrics for Voting ensemble
-    mlflow.log_metric("voting_cv_mean_accuracy", voting_cv_scores.mean())
-    mlflow.log_metric("voting_cv_std_accuracy", voting_cv_scores.std())
-    mlflow.log_metric("voting_test_accuracy", voting_accuracy)
-    
-    # Log cross-validation metrics for Stacking ensemble
+    # Log metrics
     mlflow.log_metric("stacking_cv_mean_accuracy", stacking_cv_scores.mean())
     mlflow.log_metric("stacking_cv_std_accuracy", stacking_cv_scores.std())
-    mlflow.log_metric("stacking_test_accuracy", stacking_accuracy)
+    mlflow.log_metric("stacking_test_accuracy", test_accuracy)
     
-    # Log classification reports (could also be saved as artifacts)
-    voting_report = classification_report(y_test, voting_pred, zero_division=0)
-    stacking_report = classification_report(y_test, stacking_pred, zero_division=0)
-    print("Voting Classifier Report:\n", voting_report)
-    print("Stacking Classifier Report:\n", stacking_report)
+    # Log additional metrics from the classification report
+    mlflow.log_metric("weighted_precision", report_dict['weighted avg']['precision'])
+    mlflow.log_metric("weighted_recall", report_dict['weighted avg']['recall'])
+    mlflow.log_metric("weighted_f1", report_dict['weighted avg']['f1-score'])
     
-    # Log the ensemble models in MLflow
-    mlflow.sklearn.log_model(voting_clf, "voting_ensemble_model")
-    mlflow.sklearn.log_model(stacking_clf, "stacking_ensemble_model")
+    # Print classification report for inspection
+    print("Stacking Ensemble with SVM Endpoint Classification Report:\n", classification_report(y_test, y_pred, zero_division=0))
+    
+    # Log the final stacking model in MLflow
+    mlflow.sklearn.log_model(best_stacking_clf, "stacking_ensemble_svm_endpoint_model")
     
     print("MLflow run completed successfully!")
-    print(f"Voting Test Accuracy: {voting_accuracy}")
-    print(f"Stacking Test Accuracy: {stacking_accuracy}")
+    print(f"Stacking Test Accuracy (with SVM Endpoint): {test_accuracy}")

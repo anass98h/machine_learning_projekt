@@ -1,0 +1,20 @@
+artifact_path: voting_ensemble_model
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.13.2
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.6.1
+mlflow_version: 2.20.1
+model_size_bytes: 7032390
+model_uuid: 25339fb203904642bb7584136eab6604
+run_id: d794c38df163421e98ddff8f28554a00
+utc_time_created: '2025-03-10 21:46:54.509400'
