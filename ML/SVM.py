@@ -19,8 +19,8 @@ mlflow.set_experiment("svm_grid_search_experiment")
 # Parameter grid for GridSearchCV; note the 'clf__' prefix refers to the SVC step in the pipeline.
 SVM_GRID_PARAMS = {
     'clf__kernel': ['linear', 'rbf', 'poly', 'sigmoid'],
-    'clf__C': [0.1, 1, 10, 100],
-    'clf__gamma': [1, 0.1, 0.01, 0.001]
+    'clf__C': [0.1, 1,],
+    'clf__gamma': [0.1, 0.01]
 }
 TEST_SIZE = 0.2
 RANDOM_STATE = 42
@@ -115,7 +115,9 @@ with mlflow.start_run():
     error_rate = 1 - accuracy
 
     report_dict = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
-
+    results = grid_search.cv_results_
+    for mean, std, params in zip(results['mean_test_score'], results['std_test_score'], results['params']):
+        print(f"CV Accuracy: {mean:.4f}, Std: {std:.4f}, Params: {params}")
     # Log evaluation metrics
     mlflow.log_metrics({
         "accuracy": accuracy,
