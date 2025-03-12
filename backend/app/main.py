@@ -8,6 +8,7 @@ from enum import Enum
 from pydantic import BaseModel
 import logging
 from app.model_loader import ModelLoader, ModelInfo
+import time
 
 class WeakLink(str, Enum):
     FORWARD_HEAD = "ForwardHead"
@@ -212,6 +213,11 @@ async def list_categorizing_models():
             headers={"error_type": "model_list_error"}
         )
 
+class WeakestLinkResponse(BaseModel):
+    model_name: str
+    weakest_link: WeakLink
+    processing_time_ms: float  # Added field for processing time in milliseconds
+
 @app.post("/classify-weakest-link/{model_name}", 
          response_model=WeakestLinkResponse,
          responses={
@@ -234,16 +240,24 @@ async def classify_weakest_link(
     model = model_loader.get_model(model_name)
     
     try:
+        
+        
         # Read and process the file
         contents = await file.read()
         df = pd.read_csv(pd.io.common.BytesIO(contents))
-        
+        # Start timing
+        start_time = time.time()
         # Make prediction
         predicted_class = model.predict(df)[0]
         
+        # End timing and calculate duration in milliseconds
+        end_time = time.time()
+        processing_time_ms = (end_time - start_time) * 1000
+        
         return WeakestLinkResponse(
             model_name=model_name,
-            weakest_link=predicted_class
+            weakest_link=predicted_class,
+            processing_time_ms=processing_time_ms 
         )
     
     except Exception as e:
