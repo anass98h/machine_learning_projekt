@@ -278,7 +278,7 @@ Custom implementation was required because:
 
 4. **Meta-learner Configuration**: Stacking requires specific configurations like CV folds and passthrough options that need to be coordinated with the base learners.
 
-While it would be possible to use GridSearchCV with careful pipeline construction for the logistic regression, the ensemble model's complexity made a custom implementation significantly clearer and more flexible. This approach gave us complete control over the search process and made it easier to track and visualize the results.
+While it would be possible to use GridSearchCV with careful pipeline construction for the logistic regression, the ensemble model's complexity made a custom implementation significantly clearer.
 
 ## Conclusion
 
