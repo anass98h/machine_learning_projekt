@@ -9,6 +9,12 @@ from pydantic import BaseModel
 import logging
 from app.model_loader import ModelLoader, ModelInfo
 import time
+import os
+from pathlib import Path
+
+# Define the directory to save Json files
+POSENET_DATA = Path("posenet_data")
+POSENET_DATA.mkdir(exist_ok=True)  # Create the directory if it doesn't exist
 
 class WeakLink(str, Enum):
     FORWARD_HEAD = "ForwardHead"
@@ -265,4 +271,38 @@ async def classify_weakest_link(
             status_code=500,
             detail=str(e),
             headers={"error_type": "prediction_error"}
+        )
+
+@app.post("/upload-posenet-data", 
+          response_model=dict,
+          responses={
+              400: {"model": ErrorResponse},
+              500: {"model": ErrorResponse}
+          })
+async def upload_posenet_data(file: UploadFile = File(...)):
+    """
+    Endpoint to upload PoseNet JSON data and save it to the server.
+    """
+    try:
+        # Validate file type
+        if not file.filename.endswith(".json"):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid file format. Only JSON files are allowed.",
+                headers={"error_type": "file_format_error"}
+            )
+        
+        # Save the file to the posenet_data directory
+        file_path = POSENET_DATA / file.filename
+        with open(file_path, "wb") as f:
+            contents = await file.read()
+            f.write(contents)
+        
+        return {"message": f"File '{file.filename}' uploaded successfully."}
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to upload file: {str(e)}",
+            headers={"error_type": "upload_error"}
         )
